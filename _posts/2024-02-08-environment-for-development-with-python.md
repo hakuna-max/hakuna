@@ -48,30 +48,8 @@ git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
 pyenv --version
 ```
 
-#### 设置 Python 的镜像站点
-**Note**: 由于网络原因，建议通过设置`PYTHON_BUILD_MIRROR_URL`为镜像站点值，如<https://mirrors.huaweicloud.com/python/>
-1. **通过系统属性设置环境变量**：
-   - 按下 `Windows` 键，然后输入 “系统环境变量” 并选择 “编辑系统环境变量”（或在控制面板中找到系统属性 > 高级 > 环境变量）。
-   - 在“系统属性”窗口中，点击“环境变量”按钮。
-   - 在“环境变量”窗口，你可以选择为“用户变量”或“系统变量”添加新的环境变量：
-     - 如果你想要设置的变量仅对当前用户有效，选择“用户变量”部分，然后点击“新建”。
-     - 如果想要设置的变量对所有用户有效，选择“系统变量”部分，然后点击“新建”。
-   - 在“新建用户变量”或“新建系统变量”窗口，输入变量名 `PYTHON_BUILD_MIRROR_URL`，并将变量值设置为你选择的镜像站点 URL，例如：
+**Note**: 由于网络原因，建议设置`PYTHON_BUILD_MIRROR_URL`为镜像站点，如<https://mirrors.huaweicloud.com/python/>。也可以设置`PYTHON_BUILD_ARIA2_OPTS`为建议值：`-x 10 -k 1M`。在设置该值前，请确保安装了aria2。
 
-   - 点击“确定”保存你的设置，然后再次点击“确定”关闭环境变量窗口。
-2. **通过命令行设置环境变量**：
-   - 你也可以使用 Windows 命令行工具（如 cmd 或 PowerShell）来设置环境变量。这对于临时更改或脚本自动化很有用。
-   - 在 cmd 中设置环境变量（临时）：
-     ```powershell
-     set PYTHON_BUILD_MIRROR_URL=https://mirrors.huaweicloud.com/python/
-     ```
-   - 在 PowerShell 中设置环境变量（临时）：
-     ```powershell
-     $env:PYTHON_BUILD_MIRROR_URL="https://mirrors.huaweicloud.com/python/"
-     ```
-   - 请注意，通过命令行设置的环境变量仅在当前命令行窗口中有效，关闭窗口后变量将失效。
-
-完成上述任一步骤后，`pyenv` 将尝试使用指定的镜像站点 URL 来安装 Python。如果你之前尝试安装某个版本的 Python 失败了，建议先运行 `pyenv rehash`，然后再尝试安装所需的 Python 版本。
 
 ### 安装 Poetry
 
