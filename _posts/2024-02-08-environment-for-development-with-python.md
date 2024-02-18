@@ -47,6 +47,7 @@ git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
 ```shell
 pyenv --version
 ```
+
 #### 设置 Python 的镜像站点
 **Note**: 由于网络原因，建议通过设置`PYTHON_BUILD_MIRROR_URL`为镜像站点值，如<https://mirrors.huaweicloud.com/python/>
 1. **通过系统属性设置环境变量**：
