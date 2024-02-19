@@ -48,7 +48,7 @@ git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
 pyenv --version
 ```
 
-**Note**: 由于网络原因，建议设置`PYTHON_BUILD_MIRROR_URL`为镜像站点，如<https://mirrors.huaweicloud.com/python/>。也可以设置`PYTHON_BUILD_ARIA2_OPTS`为建议值：`-x 10 -k 1M`。在设置该值前，请确保安装了aria2。
+**Note**: 由于网络原因，建议设置`PYTHON_BUILD_MIRROR_URL`为镜像站点，如<https://mirrors.huaweicloud.com/python/>。也可以设置`PYTHON_BUILD_ARIA2_OPTS`为建议值：`-x 10 -k 1M`。在设置该值前，请确保安装了[aria2](https://aria2.github.io/)。
 
 
 ### 安装 Poetry
@@ -108,3 +108,4 @@ poetry install
 - [Poetry 官方文档](https://python-poetry.org/docs/)
 - [Modern Python Environments - dependency and workspace management](https://testdriven.io/blog/python-environments/)
 - [Python Virtual Environments tutorial using Virtualenv and Poetry](https://serpapi.com/blog/python-virtual-environments-using-virtualenv-and-poetry/)
+- [How to Create and Use Virtual Environments in Python With Poetry](https://www.youtube.com/watch?v=0f3moPe_bhk&t=494s)
