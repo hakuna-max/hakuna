@@ -108,3 +108,4 @@ poetry install
 - [Poetry 官方文档](https://python-poetry.org/docs/)
 - [Modern Python Environments - dependency and workspace management](https://testdriven.io/blog/python-environments/)
 - [Python Virtual Environments tutorial using Virtualenv and Poetry](https://serpapi.com/blog/python-virtual-environments-using-virtualenv-and-poetry/)
+- [How to Create and Use Virtual Environments in Python With Poetry](https://www.youtube.com/watch?v=0f3moPe_bhk&t=494s)
