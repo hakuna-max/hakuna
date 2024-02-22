@@ -134,6 +134,7 @@ build-backend = "poetry.core.masonry.api"
 ## Step 4：在 VS Code 中设置 Python 解释器
 
 通常情况下，VS Code 足够聪明，当我们第一次使用 `poetry add` 命令后，在VS Code中的右下角会提示 “发现新的虚拟环境”，只要点击yes后，VS Code会自动设置好项目的虚拟环境。
+
 ![](/assets/images/python/python-environment-prompt.png)
 
 如果没有，那我们需要手动设置 Python 解释器。首先，我们需要找到虚拟环境中的 Python 解释器路径。这可以通过如下命令实现
@@ -159,6 +160,50 @@ Executable: C:\Users\hakuna-o\.pyenv\pyenv-win\versions\3.12.1\python.exe
 ```
 
 可以发现，我的电脑上有两个 Python 解释器，一个显示为 Virtualenv，一个显示为 System。我们需要的是 Virtualenv 虚拟环境中的 Python 解释器。那么我们可以复制其中的 Executable 路径，此处为：`D:\git\project_name\.venv\Scripts\python.exe`。然后回到 VS Code。在 VS Code 中调出 Command Palette （`ctrl + shift + p`），输入python：select interpreter后回车会出现一个列表，如下：
+
 ![](/assets/images/python/python_interpreter.png)
 
 从上图可以看见，VS Code其实已经识别了我们电脑上可用的 Python 解释器。我们可以直接选择对应的 Python 解释器。此项目的解释器为 `Python 3.12.1 ('.venv': Poetry)`，该解释器也是VS Code默认推荐的。如果此处没有列出相应的 Python 解释器。则，我们可以选择 `Enter interpreter path...`，然后将刚才复制的路径填进去。按照如上操作，当我们在 `project_name/project_name/` 文件夹下新建一个 `.py`文件后，VS Code的状态栏的右边会显示相应的 Python 解释器信息，如 `Python 3.12.1 ('.venv': Poetry)`。
+
+## Step 5: 在 VS Code 中设置 Pytest
+
+在 VS Code 中调出 Command Palette （`ctrl + shift + p`），输入 `Python：Configiure Tests` 后回车会出现一个列表:
+
+![](/assets/images/python/python_config_tests.png)
+
+这里出现了两个单元测试框架，由于我们前期选择Pytest，所以在这，我们选择第二个作为项目的测试框架，即 pytest framework。然后，会出现类似与下图所显示的内容：
+
+![](/assets/images/python/python_config_tests_folder.png)
+
+此处应该选择我们放置tests文件的文件夹，也即 `tests`。
+
+完成以上设置后，VS Code会在 `Project_name/` 文件夹下生成 `.vscode/settings.json` 和 `.pytest_cache`文件夹。在 `tests/` 文件夹下生成 `__pychace__` 和 `.pytest_cache` 文件夹。我们需要适当关注 `.vscode/settings.json`。默认生成的配置文件内容类似如下：
+
+```json
+{
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+}
+```
+
+这样，我们可以在 `Project_name/` 下执行如下命令，执行测试工作：
+```powershell
+poetry run pytest
+```
+
+假设在 `tests/` 下有一个名为 `test_exmaple.py` 的测试文件，执行 `poetry run pytest`后会在Terminal中显示：
+```plaintext
+==================================== test session starts ====================================
+platform win32 -- Python 3.12.1, pytest-8.0.1, pluggy-1.4.0
+rootdir: D:\git\project_name
+collected 1 item                                                                              
+
+tests\test_test.py .                                                                   [100%] 
+
+===================================== 1 passed in 0.01s =====================================
+```
+
+更多信息，请参考[Python testing in Visual Studio Code](https://code.visualstudio.com/docs/python/testing)
