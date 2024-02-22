@@ -194,7 +194,13 @@ Executable: C:\Users\hakuna-o\.pyenv\pyenv-win\versions\3.12.1\python.exe
 poetry run pytest
 ```
 
-假设在 `tests/` 下有一个名为 `test_exmaple.py` 的测试文件，执行 `poetry run pytest`后会在Terminal中显示：
+假设在 `tests/` 下有一个名为 `test_exmaple.py` 的测试文件，
+```python
+def test_sum():
+    assert 1 + 1 == 2
+```
+
+执行 `poetry run pytest`后会在Terminal中显示：
 ```plaintext
 ==================================== test session starts ====================================
 platform win32 -- Python 3.12.1, pytest-8.0.1, pluggy-1.4.0
@@ -206,4 +212,4 @@ tests\test_test.py .                                                            
 ===================================== 1 passed in 0.01s =====================================
 ```
 
-更多信息，请参考[Python testing in Visual Studio Code](https://code.visualstudio.com/docs/python/testing)
+更多关于在VS Code中实现单元测试，请参考[Python testing in Visual Studio Code](https://code.visualstudio.com/docs/python/testing)
