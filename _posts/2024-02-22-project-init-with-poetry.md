@@ -20,10 +20,13 @@ sidebar: []
 在开始之前，请确认已经在您的电脑上安装好了 [Poetry](https://python-poetry.org/) 以及 [VS Code](https://code.visualstudio.com/)。如未配置好 Python 的开发环境， 请参考[Setting Up a Modern Python Development Environment with pyenv-win and Poetry](/2024-02-08-environment-for-development-with-python.md)以及其中的参考资料。
 
 ## Step 1: 进入到项目目标文件夹
+
 假设我们希望将项目放在电脑的 D 盘，可以执行以下代码，进入到目标盘：
 ```powershell
 cd D:
 ```
+
+## Step 2: 初始化项目
 
 然后我们可以使用 Poetry 来初始化我们的项目（以下步骤假设项目文件夹未存在）：
 ```powershell
@@ -31,7 +34,7 @@ poetry new project_name
 ```
 
 这将在我们目标盘下初始化一个名为 `project_name` 的文件夹，其中的目录结构如下：
-```text
+```plaintext
 project_name
 ├── pyproject.toml
 ├── README.md
@@ -40,3 +43,25 @@ project_name
 └── tests
     └── __init__.py
 ```
+
+- `project_name/project_name/`文件夹主要用于存放项目主要代码，
+- `project_name/texts/`文件夹将主要用于存放测试代码。
+- `pyproject.toml`文件时项目依赖的配置文件，由 `poetry new project_name` 初始化的 `pyproject.toml` 文件内容类似于：
+```toml
+[tool.poetry]
+name = "project-name"
+version = "0.1.0"
+description = ""
+authors = ["hakuna@thinkstation <hakuna@thinkstation.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+```
+
+
