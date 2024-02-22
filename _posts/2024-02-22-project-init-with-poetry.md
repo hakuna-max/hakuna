@@ -46,7 +46,9 @@ project_name
 
 - `project_name/project_name/`文件夹主要用于存放项目主要代码，
 - `project_name/texts/`文件夹将主要用于存放测试代码。
-- `pyproject.toml`文件时项目依赖的配置文件，由 `poetry new project_name` 初始化的 `pyproject.toml` 文件内容类似于：
+- `pyproject.toml`文件为项目依赖的配置文件。
+
+由 `poetry new project_name` 初始化的 `pyproject.toml` 文件内容类似于：
 ```toml
 [tool.poetry]
 name = "project-name"
@@ -64,4 +66,5 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
 
+*Note*: 在刚开始不熟悉的情况下，建议不要手动修改该文件，可以通过相关 Poetry 命令来添加相关配置。 
 
