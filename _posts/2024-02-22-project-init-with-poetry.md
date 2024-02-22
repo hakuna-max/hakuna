@@ -212,4 +212,8 @@ tests\test_test.py .                                                            
 ===================================== 1 passed in 0.01s =====================================
 ```
 
-更多关于在VS Code中实现单元测试，请参考[Python testing in Visual Studio Code](https://code.visualstudio.com/docs/python/testing)
+关于在 VS Code 中实现单元测试的更为详细的介绍，请参考如下资料
+
+- [Python testing in Visual Studio Code](https://code.visualstudio.com/docs/python/testing)
+- Okken, B., 2022. Python Testing with pytest: Simple, Rapid, Effective, and Scalable, 2nd ed. Pragmatic Bookshelf.
+
