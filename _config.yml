@@ -219,7 +219,7 @@ google_analytics: G-PC3LNF48BT
 #   shortname: "Your Disqus username"
 
 # Gitment comments
-# gitment:
+gitment:
   username: "hakuna-max"
   repo: "hakuna"
   client_id: "6b58dacb1ce282091925"
