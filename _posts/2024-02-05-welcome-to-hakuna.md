@@ -1,5 +1,6 @@
 ---
 layout: post
+comments: false
 title: Welcome to Hakuna home!
 subtitle: 
 excerpt_image: /assets/images/banners/home.jpg

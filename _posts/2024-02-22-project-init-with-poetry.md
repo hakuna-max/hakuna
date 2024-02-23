@@ -1,6 +1,5 @@
 ---
 layout: post
-comments: true
 title: Initializing a project with Poetry and VS Code editor
 subtitle:
 excerpt_image: /assets/images/python/poetry-init.jpg
