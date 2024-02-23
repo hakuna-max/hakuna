@@ -221,10 +221,10 @@ google_analytics: G-PC3LNF48BT
 # Gitment comments
 # gitment:
   username: "hakuna-max"
-  repo: "hakuna-max.github.io"
+  repo: "hakuna-max/hakuna"
   client_id: "6b58dacb1ce282091925"
   client_secret: "6c943470cea3a3531e8c859a2ef4b51e4aa79dff"
-  redirect_uri: "hakuna.work"   # If you use a custom domain name
+  redirect_uri: "https://hakuna.work"   # If you use a custom domain name
 
 # Utterances comments
 # See https://utteranc.es/
