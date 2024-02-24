@@ -6,6 +6,7 @@ excerpt_image: /assets/images/python/poetry-install.gif
 author: Hakuna
 categories: Python
 tags: [environment]
+sidebar: []
 ---
 
 ## 简介
