@@ -6,8 +6,6 @@ excerpt_image: /assets/images/economics/econopedia.jpeg
 author: Hakuna
 categories: Economics
 tags: economics
-top: 
-sidebar: []
 ---
 
 ## Reference
