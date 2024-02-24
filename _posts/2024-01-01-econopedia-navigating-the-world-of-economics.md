@@ -1,8 +1,8 @@
 ---
 layout: post
-title: Econopedia: Navigating the world of economics
+title: "Econopedia: Navigating the world of economics"
 subtitle: 
-excerpt_image: /assets/images/economics/econopedia.webp
+excerpt_image: /assets/images/economics/econopedia.jpeg
 author: Hakuna
 categories: Economics
 tags: economics
