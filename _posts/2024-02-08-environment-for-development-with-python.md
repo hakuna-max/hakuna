@@ -5,9 +5,7 @@ subtitle:
 excerpt_image: /assets/images/python/poetry-install.gif
 author: Hakuna
 categories: Python
-tags: environment
-top: 
-sidebar: []
+tags: [environment]
 ---
 
 ## 简介

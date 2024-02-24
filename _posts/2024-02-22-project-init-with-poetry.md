@@ -5,9 +5,7 @@ subtitle:
 excerpt_image: /assets/images/python/poetry-init.jpg
 author: Hakuna
 categories: Python
-tags: environment
-top: 
-sidebar: []
+tags: [environment]
 ---
 
 初始化项目使用到的工具如下：

@@ -6,9 +6,7 @@ subtitle:
 excerpt_image: /assets/images/banners/home.jpg
 author: Hakuna
 categories: Buffer
-tags: buffer
-top: 
-sidebar: []
+tags: [buffer]
 ---
 
 ![](/assets/images/banners/home.jpg)
