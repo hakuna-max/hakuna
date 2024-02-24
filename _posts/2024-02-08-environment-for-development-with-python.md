@@ -6,7 +6,7 @@ excerpt_image: /assets/images/python/poetry-install.gif
 author: Hakuna
 categories: Python
 tags: environment
-top: 1
+top: 
 sidebar: []
 ---
 
@@ -31,12 +31,12 @@ sidebar: []
 1. 打开 PowerShell：以管理员身份运行 PowerShell。
 
 2. 安装 pyenv-win：使用 git 克隆 pyenv-win 到 '~/.pyenv' 目录。
-```shell
+```powershell
 git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
 ```
 
 3. 配置环境变量：在 PowerShell 中运行以下命令，添加 pyenv 相关的环境变量。
-```shell
+```powershell
 [System.Environment]::SetEnvironmentVariable('PYENV', "$HOME/.pyenv/pyenv-win/", [System.EnvironmentVariableTarget]::User)
 [System.Environment]::SetEnvironmentVariable('Path', "$env:Path;$HOME/.pyenv/pyenv-win/bin;$HOME/.pyenv/pyenv-win/shims", [System.EnvironmentVariableTarget]::User)
 ```
@@ -48,54 +48,57 @@ git clone https://github.com/pyenv-win/pyenv-win.git "$HOME/.pyenv"
 pyenv --version
 ```
 
+**Note**: 由于网络原因，建议设置`PYTHON_BUILD_MIRROR_URL`为镜像站点，如<https://mirrors.huaweicloud.com/python/>。也可以设置`PYTHON_BUILD_ARIA2_OPTS`为建议值：`-x 10 -k 1M`。在设置该值前，请确保安装了[aria2](https://aria2.github.io/)。
+
+
 ### 安装 Poetry
 
 1. 打开 PowerShell：不需要以管理员身份运行。
 
 2. 运行安装脚本：使用 Poetry 官方提供的安装命令。
-```shell
+```powershell
 (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
 ```
 
 2. 配置环境变量（如果安装脚本未自动完成）：确保 Poetry 的安装路径添加到您的环境变量中。通常，Poetry 会被安装在 `C:\Users\用户名\AppData\Roaming\Python\Scripts` 或 `C:\Users\用户名\.poetry\bin`。
 
 3. 验证安装：重新打开 PowerShell 并运行以下命令来验证 Poetry 安装成功：
-```shell
+```powershell
 poetry --version
 ```
 
 ### 使用 pyenv-win 管理 Python 版本
 
 1. 列出可用的 Python 版本
-```shell
+```powershell
 pyenv install --list
 ```
 
 2. 安装特定版本的 Python
-```shell
+```powershell
 pyenv install 3.8.10
 ```
 
 3. 设置全局 Python 版本
-```shell
+```powershell
 pyenv global 3.8.10
 ```
 
 ### 使用 Poetry 管理项目依赖
 
 1. 创建新项目
-```shell
+```powershell
 poetry new my_project
 ```
 
 2. 添加依赖
-```shell
+```powershell
 cd my_project
 poetry add requests
 ```
 
 3. 安装依赖
-```shell
+```powershell
 poetry install
 ```
 
@@ -105,3 +108,6 @@ poetry install
 - [Poetry 官方文档](https://python-poetry.org/docs/)
 - [Modern Python Environments - dependency and workspace management](https://testdriven.io/blog/python-environments/)
 - [Python Virtual Environments tutorial using Virtualenv and Poetry](https://serpapi.com/blog/python-virtual-environments-using-virtualenv-and-poetry/)
+- [How to Create and Use Virtual Environments in Python With Poetry](https://www.youtube.com/watch?v=0f3moPe_bhk&t=494s)
+
+
