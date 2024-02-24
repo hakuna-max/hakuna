@@ -129,7 +129,7 @@ build-backend = "poetry.core.masonry.api"
 
 假设以上依赖是该项目的需要的所有库，到此，初始化项目的工作到一阶段。
 
-## Step 4：在 VS Code 中设置 Python 解释器
+## Step 4: 在 VS Code 中设置 Python 解释器
 
 通常情况下，VS Code 足够聪明，当我们第一次使用 `poetry add` 命令后，在VS Code中的右下角会提示 “发现新的虚拟环境”，只要点击yes后，VS Code会自动设置好项目的虚拟环境。
 
