@@ -59,3 +59,34 @@ Mankiw, N. Gregory. 2020. Principles of Economics. 9th edition. Boston, MA: Ceng
 - **macroeconomics**: the study of economywide phenomena, including inflation, unemployment, and economic growth.
 - **positive statements** claims that attempt to describe the world as it is.
 - **normative statements** claims that attempt to prescribe how the world should be.
+
+## Chapter 3: Interdependence and the Gains from Trade
+
+- **absolute advantage** the ability to produce a good using fewer inputs than another producer
+- **opportunity cost** whatever must be given up to obtain some item
+- **comparative advantage** the ability to produce a good at a lower opportunity cost than another producer
+- **imports** goods produced abroad and sold domestically 
+- **exports** goods produced domestically and sold abroad
+
+## Chapter 4: The Market Forces of Supply and Demand
+
+- **market** a group of buyers and sellers of a particular good or service
+- **competitive market** a market in which there are many buyers and many sellers so each has a negligible impact on the market price
+- **quantity demanded** the amount of a good that buyers are willing and able to purchase
+- **law of demand** the claim that, other things being equal, the quantity demanded of a good falls when the price of the good rises
+- **demand schedule** a table that shows the relationship between the price of a good and the quantity demanded
+- **demand curve** a graph of the relationship between the price of a good and the quantity demanded
+- **normal good** a good for which, other things being equal, an increase in income leads to an increase in demand 
+- **inferior good** a good for which, other things being equal, an increase in income leads to a decrease in demand 
+- **substitutes** two goods for which an increase in the price of one leads to an increase in the demand for the other 
+- **complements** two goods for which an increase in the price of one leads to a decrease in the demand for the other
+- **quantity supplied** the amount of a good that sellers are willing and able to sell
+- **law of supply** the claim that, other things being equal, the quantity supplied of a good rises when the price of the good rises
+- **supply schedule** a table that shows the relationship between the price of a good and the quantity supplied
+- **supply curve** a graph of the relationship between the price of a good and the quantity supplied
+- **equilibrium** a situation in which the market price has reached the level at which the quantity supplied equals the quantity demanded
+- **equilibrium price** the price that balances the quantity supplied and the quantity demanded
+- **equilibrium quantity** the quantity supplied and the quantity demanded at the equilibrium price
+- **surplus** a situation in which the quantity supplied is greater than the quantity demanded
+- **shortage** a situation in which the quantity demanded is greater than the quantity supplied
+- **law of supply and demand** the claim that the price of any good adjusts to bring the quantity supplied and the quantity demanded of that good into balance
