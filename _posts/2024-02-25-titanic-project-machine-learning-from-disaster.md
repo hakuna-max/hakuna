@@ -13,7 +13,7 @@ sidebar: []
 ## 项目目录结构
 
 ```plaintext
-titanic_project/
+titanic/
 │
 ├── pyproject.toml                    # Poetry configuration file with dependencies and project information
 ├── README.md                         # Project README for an overview and setup instructions
@@ -25,7 +25,7 @@ titanic_project/
 │
 ├── notebooks/                        # Jupyter notebooks for exploratory data analysis and prototyping
 │
-├── src/                              # Source code for the project
+├── titanic/                          # Source code for the project
 │   ├── __init__.py                   # Initializes Python package
 │   ├── data_preprocessing.py         # Script for data preprocessing
 │   ├── model.py                      # Model definition and training script
@@ -39,4 +39,9 @@ titanic_project/
     └── model_config.yaml             # Model parameters and configuration options
 ```
 
-**Note**：以上项目目录结构为初始化状态，后续根据项目需要，文件夹和其中的文件会有所增加
+**Note**：
+
+- 以上项目目录结构为初始化状态，后续根据项目需要，文件夹和其中的文件会有所增加。
+- `pyproject.toml`, `README.md`, `titanic/ ` 以及 `test/` 文件和文件夹是通过 `poetry new titanic` 初始化后生成。
+- 其他文件以及文件夹为自己创建。
+- 为了加速依赖库的安装过程，项目使用 `poetry source add tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/` 命令添加了清华镜像源
