@@ -12,7 +12,7 @@ sidebar: []
 
 ## Titanic 项目介绍
 
-大家好！今天，我想带你们走进一个非常有趣的机器学习项目——Kaggle上的Titanic生还预测挑战。这个项目的目标是使用Titanic号乘客的数据来预测哪些乘客在这场历史性的灾难中幸存下来。这个项目不仅是一个绝佳的机会来实践和理解机器学习的基本流程，而且也是一个向所有对商务智能与机器学习感兴趣的同学们展示如何从实际数据中提取洞见的绝佳案例。
+大家好！今天，我想带你们走进一个非常有趣的机器学习项目——Kaggle上的Titanic生还预测挑战。这个项目的目标是使用Titanic号乘客的数据来预测哪些乘客在这场历史性的灾难中幸存下来（即，分类问题）。这个项目不仅是一个绝佳的机会来实践和理解机器学习的基本流程，而且也是一个向所有对商务智能与机器学习感兴趣的同学们展示如何从实际数据中提取洞见的绝佳案例。
 
 项目开始于对数据集的介绍——我们有乘客的各种信息，如年龄、性别、票价和乘客在船上的等级，这些都可能影响他们的生还机会。理解这些特征及其与目标变量之间的关系是我们任务的第一步。
 
@@ -65,7 +65,6 @@ titanic/
 - 其他文件以及文件夹为自己创建。
 - 为了加速依赖库的安装过程，项目使用 `poetry source add tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/` 命令添加了[清华镜像源](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)。
 - 初始化后的 `pyproject.toml` 内容如下：
-
 ```toml
 [tool.poetry]
 name = "titanic"
@@ -89,10 +88,4 @@ pytest = "^8.0.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-```
-
-
-```python
-def test_highlighter():
-    print("is that right")
 ```
