@@ -1,12 +1,11 @@
 ---
 layout: post
-title: Setting Up a Modern Python Development Environment with pyenv-win and Poetry
+title: Setting up a modern python development environment with pyenv-win and Poetry
 subtitle:
 excerpt_image: /assets/images/python/poetry-install.gif
 author: Hakuna
 categories: Python
-tags: environment
-top: 
+tags: [environment]
 sidebar: []
 ---
 
