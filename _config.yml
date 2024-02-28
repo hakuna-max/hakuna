@@ -238,7 +238,7 @@ utterances:
   follow_site_theme: true
 
 # Build settings
-# highlighter: none
+highlighter: pygments
 markdown: kramdown
 kramdown:
   input: GFM
