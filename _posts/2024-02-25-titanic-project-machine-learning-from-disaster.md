@@ -78,14 +78,14 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.1"
+
+
 [[tool.poetry.source]]
 name = "tsinghua"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
-priority = "default"
-
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.1"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
