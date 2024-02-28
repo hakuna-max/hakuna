@@ -2,7 +2,7 @@
  * Reset some basic elements
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap");
 
 
 body, h1, h2, h3, h4, h5, h6,
@@ -151,7 +151,9 @@ pre,
 code {
   @include relative-font-size(0.9375);
   color: $text-color;
-  font-family: 'Fira Code', monospace;
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 800;
+  font-style: normal;
 }
 
 *:not(pre) > code {
