@@ -31,6 +31,7 @@ sidebar: []
 - 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>
 - [了解titanic数据集](https://www.kaggle.com/c/titanic/data)
 - 初始化项目，初始化后的项目目录结构大致如下：
+
 ```plaintext
 titanic/
 │
@@ -65,6 +66,7 @@ titanic/
 - 其他文件以及文件夹为自己创建。
 - 为了加速依赖库的安装过程，项目使用 `poetry source add tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/` 命令添加了[清华镜像源](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)。
 - 初始化后的 `pyproject.toml` 内容如下：
+
 ```toml
 [tool.poetry]
 name = "titanic"
