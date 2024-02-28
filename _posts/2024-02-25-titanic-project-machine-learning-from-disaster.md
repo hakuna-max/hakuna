@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Titanic project: Machine learning from disaster"
+title: "Titanic project: Machine learning from disaster (ongoing)"
 subtitle:
 excerpt_image: /assets/images/python/titanic-project.jpg
 author: Hakuna
@@ -94,5 +94,4 @@ priority = "primary"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
 ```
