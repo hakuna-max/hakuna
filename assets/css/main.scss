@@ -1,7 +1,6 @@
 ---
 # Only the main Sass file needs front matter (the dashes are enough)
 ---
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code&display=swap');
 
 // Default theme colors
 $theme-colors: (
@@ -51,11 +50,6 @@ $selection-background-color: unquote("{{ site.selection.background_color }}");
 }
 @if $selection-background-color == "" {
   $selection-background-color: rgba(invert($brand-color), 0.3);
-}
-
-// custom settings
-code, pre {
-  font-family: 'Fira Code', monospace;
 }
 
 @import "yat";
