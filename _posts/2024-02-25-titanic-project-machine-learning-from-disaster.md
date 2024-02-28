@@ -72,3 +72,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
 
+
+```python
+def test_highlighter():
+    print("is that right")
+```
