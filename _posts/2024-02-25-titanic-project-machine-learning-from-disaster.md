@@ -77,6 +77,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+numpy = "^1.26.4"
+pandas = "^2.2.1"
+scikit-learn = "^1.4.1.post1"
+matplotlib = "^3.8.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.1"
@@ -90,4 +94,5 @@ priority = "primary"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
 ```
