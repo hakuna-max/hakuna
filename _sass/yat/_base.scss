@@ -218,7 +218,8 @@ table {
   margin-bottom: $spacing-unit;
   margin-left: auto;
   margin-right: auto;
-  width: 100%;
+  width: 60%;
+  font-size: $small-font-size;
   text-align: $table-text-align;
   color: lighten($text-color, 5%);
   border-collapse: collapse;
