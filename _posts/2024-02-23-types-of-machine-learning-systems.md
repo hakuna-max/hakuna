@@ -2,10 +2,10 @@
 layout: post
 title: "Types of Machine Learning Systems (ongoing)"
 subtitle:
-excerpt_image: /assets/images/python/titanic-project.jpg
+excerpt_image: /assets/images/ml/types-machine-learning.png
 author: Hakuna
-categories: [Python, Project]
-tags: [machine learning, classification]
+categories: [Module]
+tags: [machine learning]
 top: 
 sidebar: []
 ---
