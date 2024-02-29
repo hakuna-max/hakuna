@@ -8,6 +8,7 @@ categories: [Module]
 tags: [machine learning]
 top: 
 sidebar: []
+datatable: true
 ---
 
 机器学习系统有很多不同的类型，根据以下几个标准可以将它们分成几大类：
@@ -27,6 +28,17 @@ sidebar: []
 ||t-Distributed Stochastic Neighbor Embedding (t-SNE)|
 ||Apriori|
 ||Eclat|
+
+<div class="datatable-begin"></div>
+
+Food    | Description                           | Category | Sample type
+------- | ------------------------------------- | -------- | -----------
+Apples  | A small, somewhat round ...           | Fruit    | Fuji
+Bananas | A long and curved, often-yellow ...   | Fruit    | Snow
+Kiwis   | A small, hairy-skinned sweet ...      | Fruit    | Golden
+Oranges | A spherical, orange-colored sweet ... | Fruit    | Navel
+
+<div class="datatable-end"></div>
 
 - **是否能够即时增量学习**：这指的是在线学习（online）与批量学习（batch）。在线学习指的是模型能够连续学习，逐步接收数据流进行训练和调整；而批量学习则是指模型在接收到所有训练数据后进行一次性学习。在线学习适用于数据量巨大或持续变化的情况，而批量学习适合于一次性处理静态数据集。
 
