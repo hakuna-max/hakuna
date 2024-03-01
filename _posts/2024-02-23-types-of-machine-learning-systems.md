@@ -19,7 +19,8 @@ datatable: true
 
 <div style="margin-left: auto;
             margin-right: auto;
-            width:50%">
+            width:50%;
+            font-size: 10px">
 
 | Supervised                        | Unsupervised                                        |
 | --------------------------------- | --------------------------------------------------- |
