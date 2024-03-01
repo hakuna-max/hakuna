@@ -11,11 +11,17 @@ sidebar: []
 datatable: true
 ---
 
+<style>
+    .tableCenter {
+        align: center;
+    }
+</style>
+
 机器学习系统有很多不同的类型，根据以下几个标准可以将它们分成几大类：
 
 - **是否在人类的监督下进行训练**：这包括了监督学习（supervised）、无监督学习（unsupervised）、半监督学习（semisupervised）和强化学习（Reinforcement Learning）。简单来说，监督学习是指我们给模型提供了输入和期望的输出，让模型学会如何从输入映射到输出；无监督学习则是在没有明确输出的情况下让模型自我学习，寻找数据的内在结构；半监督学习介于监督学习和无监督学习之间，使用的是部分标记的数据；而强化学习是让模型通过试错的方式自我学习，根据行为的结果来调整行为策略。
 
-<div align="center">
+<div class="tableCenter">
 
 |supervised|unsupervised|
 | ---------| -----------|
