@@ -95,3 +95,9 @@ priority = "primary"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
+
+## 项目步骤
+
+整体上，该项目遵循传统的机器学习步骤，如下图所示
+
+![](/assets/images/ml/end-to-end-machine-learning-project.svg)
