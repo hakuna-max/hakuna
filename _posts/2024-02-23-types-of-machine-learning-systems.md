@@ -15,19 +15,27 @@ datatable: true
 
 - **是否在人类的监督下进行训练**：这包括了监督学习（supervised）、无监督学习（unsupervised）、半监督学习（semisupervised）和强化学习（Reinforcement Learning）。简单来说，监督学习是指我们给模型提供了输入和期望的输出，让模型学会如何从输入映射到输出；无监督学习则是在没有明确输出的情况下让模型自我学习，寻找数据的内在结构；半监督学习介于监督学习和无监督学习之间，使用的是部分标记的数据；而强化学习是让模型通过试错的方式自我学习，根据行为的结果来调整行为策略。
 
-|supervised|unsupervised|
-| ---------| -----------|
-|k-Nearest Neighbors|K-Means|
-|Linear Regression|DBSCAN|
-|Logistic Regression|Hierarchical Cluster Analysis (HCA)|
-|Support Vector Machines (SVMs)|One-class SVM|
-|Decision Trees and Random Forests|Isolation Forest|
-|Neural networks|Principal Component Analysis (PCA)|
-||Kernel PCA|
-||Locally Linear Embedding (LLE)|
-||t-Distributed Stochastic Neighbor Embedding (t-SNE)|
-||Apriori|
-||Eclat|
+
+
+<div style="margin-left: auto;
+            margin-right: auto;
+            width:50%">
+
+| Supervised                        | Unsupervised                                        |
+| --------------------------------- | --------------------------------------------------- |
+| k-Nearest Neighbors               | K-Means                                             |
+| Linear Regression                 | DBSCAN                                              |
+| Logistic Regression               | Hierarchical Cluster Analysis (HCA)                 |
+| Support Vector Machines (SVMs)    | One-class SVM                                       |
+| Decision Trees and Random Forests | Isolation Forest                                    |
+| Neural networks                   | Principal Component Analysis (PCA)                  |
+|                                   | Kernel PCA                                          |
+|                                   | Locally Linear Embedding (LLE)                      |
+|                                   | t-Distributed Stochastic Neighbor Embedding (t-SNE) |
+|                                   | Apriori                                             |
+|                                   | Eclat                                               |
+
+</div>
 
 
 - **是否能够即时增量学习**：这指的是在线学习（online）与批量学习（batch）。在线学习指的是模型能够连续学习，逐步接收数据流进行训练和调整；而批量学习则是指模型在接收到所有训练数据后进行一次性学习。在线学习适用于数据量巨大或持续变化的情况，而批量学习适合于一次性处理静态数据集。
