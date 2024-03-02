@@ -28,7 +28,7 @@ sidebar: []
 
 ## 项目的前期准备
 
-- 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>
+- 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>。也可以通过点击 [data link]('{% site.url /assets/downloadables/ml/data/titanic.zip %}') 下载。
 - [了解titanic数据集](https://www.kaggle.com/c/titanic/data)
 - 初始化项目，初始化后的项目目录结构大致如下：
 
@@ -62,7 +62,7 @@ titanic/
 **Note**：
 
 - 以上项目目录结构为初始化状态，后续根据项目需要，文件夹和其中的文件会有所增加。
-- `pyproject.toml`, `README.md`, `titanic/ ` 以及 `test/` 文件和文件夹是通过 `poetry new titanic` 初始化后生成，具体过程可以参考[Initializing a project with Poetry and VS Code editor]({% post_url 2024-02-22-project-init-with-poetry %})。
+- `pyproject.toml`, `README.md`, `titanic/` 以及 `test/` 文件和文件夹是通过 `poetry new titanic` 初始化后生成，具体过程可以参考[Initializing a project with Poetry and VS Code editor]({% post_url 2024-02-22-project-init-with-poetry %})。
 - 其他文件以及文件夹为自己创建。
 - 为了加速依赖库的安装过程，项目使用 `poetry source add tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/` 命令添加了[清华镜像源](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)。
 - 通过 `poetry add package_name` 添加必要的项目依赖。初始化后的 `pyproject.toml` 内容如下：
@@ -102,3 +102,11 @@ build-backend = "poetry.core.masonry.api"
 整体上，该项目遵循传统的机器学习步骤，如下图所示
 
 ![](/assets/images/ml/end-to-end-machine-learning-project.svg)
+
+假设同学们已经对titanic项目有了基本的了解，并且已经获到了相关数据。现在，我们可以开始EDA的相关分析工作。
+
+## EDA 及其可视化
+
+为了更为直观的呈现分析过程，我们可以借助于 jupyter 项目中的 [notebook](https://jupyter-notebook.readthedocs.io/en/latest/) 或者 [jupyterlab](https://jupyterlab.readthedocs.io/en/latest/) 工具来做 EDA及其可视化。在 [VS Code](https://code.visualstudio.com/) 中，我们可以通过安装 jupyter 插件来实现相关功能。如何在 [VS Code](https://code.visualstudio.com/) 中使用 jupyter notebook，请参考[Jupyter Notebooks in VS Code](https://code.visualstudio.com/docs/datascience/jupyter-notebooks)。
+
+假设您已经按照相关说明配置好项目环境，接下来，我们可以在 `notebooks/` 文件夹下新建一个名为 `eda_vis.ipynb` 的 notebook。
