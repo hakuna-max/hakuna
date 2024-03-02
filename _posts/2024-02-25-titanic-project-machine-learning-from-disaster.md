@@ -28,7 +28,7 @@ sidebar: []
 
 ## 项目的前期准备
 
-- 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>。也可以通过点击 [data link]('{% site.url /assets/downloadables/ml/data/titanic.zip %}') 下载。
+- 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>。也可以通过点击 [data link]({% site.url /assets/downloadables/ml/data/titanic.zip %}) 下载。
 - [了解titanic数据集](https://www.kaggle.com/c/titanic/data)
 - 初始化项目，初始化后的项目目录结构大致如下：
 
