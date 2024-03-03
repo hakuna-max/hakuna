@@ -302,4 +302,4 @@ Name: proportion, dtype: float64
 
 ![](/assets/images/ml/titianic_factor_survived.png)
 
-从结合数据分析结果，可以发现超过半数的乘客（61.62%）在 Titanic 事件中未能生存，仅有约三分之一的乘客在事故中生存下来。
+结合数据分析结果，可以发现超过半数的乘客（61.62%）在 Titanic 事件中未能生存，仅有约三分之一的乘客在事故中生存下来。
