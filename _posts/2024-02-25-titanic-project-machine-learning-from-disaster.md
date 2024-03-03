@@ -303,3 +303,46 @@ Name: proportion, dtype: float64
 ![](/assets/images/ml/titianic_factor_survived.png)
 
 结合数据分析结果，可以发现超过半数的乘客（61.62%）在 Titanic 事件中未能生存，仅有约三分之一的乘客在事故中生存下来。
+
+对于数值型变量，我们首先借助于直方图和核密度估计图来查看 `Age` 和 `Fare` 的分布。[seaborn](https://seaborn.pydata.org/tutorial.html) 中的 `histplot` 方法对此提供了非常好的支持。由于前期我们在初始化中并没有添加该依赖，可以通过 `poetry add seaborn` 的方式将该依赖添加到我们的项目环境中。记得通过 `import searbon as sns` 将改包导入到工作区。分析的代码如下：
+
+```python
+# 绘制 Age 的分布图
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)  # 1行2列的第一个
+sns.histplot(train_data['Age'].dropna(), kde=True, bins=30)
+plt.title('Distribution of Age')
+
+# 绘制 Fare 的分布图
+plt.subplot(1, 2, 2)  # 1行2列的第二个
+sns.histplot(train_data['Fare'].dropna(), kde=True, bins=30)
+plt.title('Distribution of Fare')
+
+plt.tight_layout()
+plt.show()
+```
+
+其结果如下：
+
+![](/assets/images/ml/titianic_factor_age_fare_dist.png)
+
+当然，我们也可以借助于 `describe()` 方法来查看 `Age` 和 `Fare` 的基本统计量
+
+```python
+age_fare_stats = train_data[['Age', 'Fare']].describe()
+print(age_fare_stats)
+```
+
+基本统计量结果如下：
+
+```plaintext
+              Age        Fare
+count  714.000000  891.000000
+mean    29.699118   32.204208
+std     14.526497   49.693429
+min      0.420000    0.000000
+25%     20.125000    7.910400
+50%     28.000000   14.454200
+75%     38.000000   31.000000
+max     80.000000  512.329200
+```
