@@ -140,7 +140,7 @@ google_analytics: G-PC3LNF48BT
 # it will be always kept on every visit (i.e. no matter
 # the browser is closed or not)
 #
-# night_mode: "auto"
+night_mode: "off"
 
 # Code badge setting
 # You can enable or disable the code badge and so on
