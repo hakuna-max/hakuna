@@ -247,3 +247,59 @@ memory usage: 83.7+ KB
 5. 额外的单变量分析。可以考虑更深入地分析 `Name` 和 `Ticket`。例如，从 `Name` 中提取头衔，并分析不同头衔的乘客分布；对 Ticket 进行类似的分析，看是否可以从中提取有用的信息。
 
 通过这些单变量分析，你可以对数据集有一个全面的了解，这将为后续的多变量分析和数据预处理提供坚实的基础。在完成这些分析后，可以根据发现的洞见进行多变量分析，探索变量之间的关系，尤其是与目标变量 Survived 之间的关系。
+
+为了分析目标变量，基于如下代码：
+
+```python
+# 计算生存和未生存的乘客数量
+survival_counts = train_data['Survived'].value_counts()
+
+# 打印生存和未生存的乘客数量
+print(f"Survival counts: {survival_counts}")
+
+# 计算生存和未生存的乘客比例
+survival_rates = (train_data['Survived'].value_counts(normalize=True) * 100).round(2)
+
+# 打印生存和未生存的乘客比例
+print(f"\nSurvival rates (%): {survival_rates}")
+
+# 绘制条形图
+plt.figure(figsize=(8, 6))
+bars = survival_counts.plot(kind='bar')
+plt.title('Survival Count in Titanic Dataset')
+plt.xlabel('Survived (1 = Survived, 0 = Not Survived)')
+plt.ylabel('Count')
+plt.xticks(rotation=0)
+
+# 在每个条形上添加数值标签
+for bar in bars.patches:
+    # 获取条形的位置信息和高度
+    y_value = bar.get_height()
+    x_value = bar.get_x() + bar.get_width() / 2
+
+    # 设置标签显示的数值
+    label = f"{y_value:.0f}"
+
+    # 在条形上方显示标签
+    plt.text(x_value, y_value, label, ha='center', va='bottom')
+
+plt.show()
+```
+
+可以得到如下结果：
+
+```plaintext
+Survival counts: Survived
+0    549
+1    342
+Name: count, dtype: int64
+
+Survival rates (%): Survived
+0    61.62
+1    38.38
+Name: proportion, dtype: float64
+```
+
+![](/assets/images/ml/titianic_factor_survived.png)
+
+从结合数据分析结果，可以发现超过半数的乘客（61.62%）在 Titanic 事件中未能生存，仅有约三分之一的乘客在事故中生存下来。
