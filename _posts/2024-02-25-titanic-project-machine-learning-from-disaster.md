@@ -6,17 +6,17 @@ excerpt_image: /assets/images/python/titanic-project.jpg
 author: Hakuna
 categories: [Python, Project, Module]
 tags: [machine learning, classification]
-top: 
+top:
 sidebar: []
 ---
 
 ## Titanic 项目介绍
 
-大家好！今天，我想带你们走进一个非常有趣的机器学习项目——Kaggle上的Titanic生还预测挑战。这个项目的目标是使用Titanic号乘客的数据来预测哪些乘客在这场历史性的灾难中幸存下来（即，分类问题）。这个项目不仅是一个绝佳的机会来实践和理解机器学习的基本流程，而且也是一个向所有对商务智能与机器学习感兴趣的同学们展示如何从实际数据中提取洞见的绝佳案例。
+大家好！今天，我想带你们走进一个非常有趣的机器学习项目——Kaggle 上的 Titanic 生还预测挑战。这个项目的目标是使用 Titanic 号乘客的数据来预测哪些乘客在这场历史性的灾难中幸存下来（即，分类问题）。这个项目不仅是一个绝佳的机会来实践和理解机器学习的基本流程，而且也是一个向所有对商务智能与机器学习感兴趣的同学们展示如何从实际数据中提取洞见的绝佳案例。
 
 项目开始于对数据集的介绍——我们有乘客的各种信息，如年龄、性别、票价和乘客在船上的等级，这些都可能影响他们的生还机会。理解这些特征及其与目标变量之间的关系是我们任务的第一步。
 
-接下来，我们会进行数据预处理，包括处理缺失值、异常值和特征编码，为建模准备数据。然后是探索性数据分析，或称EDA，它帮助我们通过可视化和数据摘要来揭示数据的内在模式和特征关系。
+接下来，我们会进行数据预处理，包括处理缺失值、异常值和特征编码，为建模准备数据。然后是探索性数据分析，或称 EDA，它帮助我们通过可视化和数据摘要来揭示数据的内在模式和特征关系。
 
 特征工程阶段，我们会选择最有影响的特征，并可能创造新特征来帮助模型更好地理解数据。紧接着，我们将探索和比较不同的机器学习模型，比如逻辑回归、随机森林、支持向量机、朴素贝叶斯、决策树等，以找到最适合我们数据的模型。
 
@@ -28,8 +28,8 @@ sidebar: []
 
 ## 项目的前期准备
 
-- 获取数据集，请从Kaggle网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>。也可以通过点击 [data link]({% site.url assets/downloadables/ml/data/titanic.zip %}) 下载。
-- [了解titanic数据集](https://www.kaggle.com/c/titanic/data)
+- 获取数据集，请从 Kaggle 网站上下载相关数据集，链接：<https://www.kaggle.com/c/titanic/data>。也可以通过点击 [data link]({% site.url assets/downloadables/ml/data/titanic.zip %}) 下载。
+- [了解 titanic 数据集](https://www.kaggle.com/c/titanic/data)
 - 初始化项目，初始化后的项目目录结构大致如下：
 
 ```plaintext
@@ -103,10 +103,56 @@ build-backend = "poetry.core.masonry.api"
 
 ![](/assets/images/ml/end-to-end-machine-learning-project.svg)
 
-假设同学们已经对titanic项目有了基本的了解，并且已经获到了相关数据。现在，我们可以开始EDA的相关分析工作。
+假设同学们已经对 titanic 项目有了基本的了解，并且已经获到了相关数据。现在，我们可以开始 EDA 的相关分析工作。
 
 ## EDA 及其可视化
 
-为了更为直观的呈现分析过程，我们可以借助于 jupyter 项目中的 [notebook](https://jupyter-notebook.readthedocs.io/en/latest/) 或者 [jupyterlab](https://jupyterlab.readthedocs.io/en/latest/) 工具来做 EDA及其可视化。在 [VS Code](https://code.visualstudio.com/) 中，我们可以通过安装 jupyter 插件来实现相关功能。如何在 [VS Code](https://code.visualstudio.com/) 中使用 jupyter notebook，请参考[Jupyter Notebooks in VS Code](https://code.visualstudio.com/docs/datascience/jupyter-notebooks)。
+为了更为直观的呈现分析过程，我们可以借助于 jupyter 项目中的 [notebook](https://jupyter-notebook.readthedocs.io/en/latest/) 或者 [jupyterlab](https://jupyterlab.readthedocs.io/en/latest/) 工具来做 EDA 及其可视化。在 [VS Code](https://code.visualstudio.com/) 中，我们可以通过安装 jupyter 插件来实现相关功能。如何在 [VS Code](https://code.visualstudio.com/) 中使用 jupyter notebook，请参考[Jupyter Notebooks in VS Code](https://code.visualstudio.com/docs/datascience/jupyter-notebooks)。
 
 假设您已经按照相关说明配置好项目环境，接下来，我们可以在 `notebooks/` 文件夹下新建一个名为 `eda_vis.ipynb` 的 notebook。
+
+`eda_vis.ipynb` 第一个 cell 通常用来导入相关依赖，设置相关环境变量等。例如，我们需要 `pandas` 中的 `read_csv` 方法来加载相关数据，那么我们需要在其中写上如下代码
+
+```python
+# import packages
+import pandas as pd
+```
+
+然后，我们就可以使用 `pd.read_csv(file_path)` 的方式将相关数据加载到工作空间中，例如，在新的 cell 中我们可以按照如下方式加载数据
+
+```python
+# load raw data
+train_data = pd.read_csv("../data/raw/train.csv")    # train data
+test_data = pd.read_csv("../data/raw/test.csv")      # test data
+```
+
+如果存放数据的路径正确，那么我们的数据已经被加载到工作空间了。接下来，可以鸟瞰下数据：
+
+```python
+print(train_data.head())
+```
+
+默认参数设置下，`print(train_data.head())` 会打印出数据框的前 5 行，包括所有列的数据，例如：
+
+```plaintext
+   PassengerId  Survived  Pclass  \
+0            1         0       3
+1            2         1       1
+2            3         1       3
+3            4         1       1
+4            5         0       3
+
+                                                Name     Sex   Age  SibSp  \
+0                            Braund, Mr. Owen Harris    male  22.0      1
+1  Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0      1
+2                             Heikkinen, Miss. Laina  female  26.0      0
+3       Futrelle, Mrs. Jacques Heath (Lily May Peel)  female  35.0      1
+4                           Allen, Mr. William Henry    male  35.0      0
+
+   Parch            Ticket     Fare Cabin Embarked
+0      0         A/5 21171   7.2500   NaN        S
+1      0          PC 17599  71.2833   C85        C
+2      0  STON/O2. 3101282   7.9250   NaN        S
+3      0            113803  53.1000  C123        S
+4      0            373450   8.0500   NaN        S
+```
