@@ -132,7 +132,7 @@ test_data = pd.read_csv("../data/raw/test.csv")      # test data
 print(train_data.head())
 ```
 
-默认参数设置下，`print(train_data.head())` 会打印出数据框的前 5 行，包括所有列的数据，例如：
+默认参数设置下，`print(train_data.head())` 会打印出数据框的前 5 行，所有列的数据，例如：
 
 ```plaintext
    PassengerId  Survived  Pclass  \
@@ -156,3 +156,80 @@ print(train_data.head())
 3      0            113803  53.1000  C123        S
 4      0            373450   8.0500   NaN        S
 ```
+
+可以初略地看出，每一行代表一个乘客的信息，列包括乘客的不同特征。结合 [Kaggle 对 titanic 数据集](https://www.kaggle.com/c/titanic/data)的介绍，可以大致地分析每个特征在机器学习模型中的潜在重要性：
+
+1. **PassengerId**: 乘客 ID，唯一标识每个乘客。这个特征对于模型的预测通常没有直接作用，主要用于索引和排序。
+
+2. **Survived**: 生存状态，是目标变量（即我们想要预测的变量）。0 表示未生存，1 表示生存。
+
+3. **Pclass**: 乘客舱等级，是一个社会经济地位的指标，有 1、2、3 三个值。通常第一等舱的乘客生存率更高。
+
+4. **Name**: 乘客姓名。虽然姓名本身对预测可能没有直接影响，但可以从中提取出有用的特征，如头衔，可能会反映乘客的社会地位。
+
+5. **Sex**: 性别，是一个重要的特征，因为历史数据表明女性乘客的生存率高于男性。
+
+6. **Age**: 年龄，可能会影响生存率。例如，小孩和老人可能在撤离时获得优先权。
+
+7. **SibSp**: 兄弟姐妹和配偶的数量。家庭成员的数量可能会影响乘客的生存率。
+
+8. **Parch**: 父母和孩子的数量。同样，家庭大小可能是一个重要因素。
+
+9. **Ticket**: 票号。这个特征可能不会直接影响生存率，但有可能包含一些有用的信息，例如团体旅行可能有相同的票号前缀。
+
+10. **Fare**: 票价，可能反映了乘客的社会经济地位和舱位。
+
+11. **Cabin**: 船舱号。这个特征有很多缺失值 (需要考虑如何处理)，但对于有记录的船舱号，它可能反映了乘客的位置，进而可能影响到他们的生存率。
+
+12. **Embarked**: 登船港口。有三个可能的值 S、C、Q，分别代表南安普顿（Southampton）、瑟堡（Cherbourg）和皇后镇（Queenstown），这可能是生存率的一个因素。
+
+此外，我们还可以通过 `info` 方法进一步查看数据集的的其他基本信息，例如总的行数、列数、每列的数据类型和非空值的数量，甚至内存的使用情况等
+
+```python
+train_data.info()
+```
+
+```plaintext
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 891 entries, 0 to 890
+Data columns (total 12 columns):
+ #   Column       Non-Null Count  Dtype
+---  ------       --------------  -----
+ 0   PassengerId  891 non-null    int64
+ 1   Survived     891 non-null    int64
+ 2   Pclass       891 non-null    int64
+ 3   Name         891 non-null    object
+ 4   Sex          891 non-null    object
+ 5   Age          714 non-null    float64
+ 6   SibSp        891 non-null    int64
+ 7   Parch        891 non-null    int64
+ 8   Ticket       891 non-null    object
+ 9   Fare         891 non-null    float64
+ 10  Cabin        204 non-null    object
+ 11  Embarked     889 non-null    object
+dtypes: float64(2), int64(5), object(5)
+memory usage: 83.7+ KB
+```
+
+从以上输出，我们可以得知以下有用信息：
+
+1. **行数和列数**：训练数据集一共有 891 行（乘客数），总共有 12 列（特征数），每列代表不同的特征。
+2. **非空值计数**：这部分信息显示了每列非空（非缺失）值的数量。例如，`Age`列只有 714 个非空值，意味着有 177 个缺失值（891 - 714）。`Cabin`列只有 204 个非空值，这表明大多数乘客的船舱信息是缺失的。
+3. **数据类型**：
+   - `int64`：整数类型，如`PassengerId`, `Survived`, `Pclass`, `SibSp`, `Parch`。
+   - `float64`：浮点数类型，如`Age`和`Fare`。
+   - `object`：通常是字符串类型，用于文本或混合数据类型，如`Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`。
+4. **内存使用**：数据集大约占用 83.7 KB 内存。
+
+进一步分析，
+
+- **`Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`**: 这些都是分类特征，但处理方式可能不同。例如，`Name`可能需要从中提取称谓，`Cabin`的缺失值需要特别处理。
+- **`Age`, `SibSp`, `Parch`, `Fare`**: 这些是数值特征，可以直接用于模型，但可能需要处理缺失值和标准化或归一化。
+
+考虑缺失值处理策略：
+
+- **`Age`**: 缺失值可以通过中位数、均值或基于其他相关特征的预测模型来填充。
+- **`Cabin`**: 由于缺失值较多，可以考虑转换为有船舱信息和无船舱信息两类，或者直接忽略此特征。
+- **`Embarked`**: 只有两个缺失值，可以填充为最常见的值，或者根据其他特征来推断。
+
+通过以上信息，可以对数据有一个基本的了解，为后续的数据清洗、特征工程和建模工作打下基础。
