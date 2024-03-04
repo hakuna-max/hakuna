@@ -355,3 +355,41 @@ max     80.000000  512.329200
 该分布特征也表明，我们需要考虑特征的极端值对模型训练和性能的影响，导致预测偏向数据的主体部分，而忽视尾部的重要信息。
 
 针对分布不均匀的数据集，在后期数据处理时，可能会考虑采用不同策略对其进行处理，比如**数据转换**，**分箱（Binning）**，**剔除极端值**，甚至考虑使用对偏态分布不敏感的**非线性模型**（如，随机森林，梯度提升树等）。具体采用何种方法将取决与数据的具体情况和模型的需求。一般建议在数据转换或处理前后，都进行可视化，以此评估转换或处理的效果。在应用任何转换或者处理方法之前，最好在原始数据上训练模型，以便有一个基准性能进行比较。
+
+对于 `SibSp` 和 `Parch`，实现其不同值的乘客数量的条形图的代码如下：
+
+```python
+# 绘制 SibSp 的分布
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)  # 1行2列的第一个
+sns.countplot(x='SibSp', data=train_data)
+plt.title("Distribution of SibSp")
+plt.ylabel("Number of Passengers")
+plt.xlabel("SibSp")
+
+# 绘制 Parch 的分布
+plt.subplot(1, 2, 2)  # 1行2列的第一个
+sns.countplot(x='Parch', data=train_data)
+plt.title('Distribution of Parch')
+plt.ylabel('Number of Passengers')
+plt.xlabel('Parch')
+
+plt.tight_layout()
+plt.show()
+```
+
+结果：
+
+![](/assets/images/ml/titianic_factor_sibsp_parch_dist.png)
+
+从条形图中，我们可以观察到以下几点关于 `SibSp`（兄弟姐妹/配偶数量）和 `Parch`（父母/孩子数量）的分布：
+
+1. **`SibSp` 分布**：大多数乘客没有兄弟姐妹或配偶同行（ `SibSp` 为0）。有一些乘客有一个兄弟姐妹或配偶（ `SibSp` 为1），而有两个或更多兄弟姐妹或配偶同行的乘客数量较少。
+
+2. **`Parch` 分布**：与 `SibSp` 类似，大多数乘客没有携带父母或孩子（ `Parch` 为0）。少数乘客有一到三个父母或孩子同行，而更多的父母或孩子同行的情况则更为罕见。
+
+针对以上结果，我们在后期分析中，可能需要注意以下几点：
+
+- **特征组合**：考虑将"SibSp"和"Parch"合并为一个新特征，如家庭成员总数，这可能有助于揭示家庭规模与生存率之间的关系。
+- **模型选择**：选择对分类数据敏感度低的模型，如随机森林或梯度提升树，可能在处理这类特征时表现更好。
+- **数据预处理**：对于 `SibSp` 和 `Parch` 值较大的少数样本，可以考虑进行分组或其他形式的处理，以防止它们对模型产生不成比例的影响。
