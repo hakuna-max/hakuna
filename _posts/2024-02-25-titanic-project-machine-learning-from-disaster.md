@@ -433,7 +433,7 @@ plt.tight_layout()
 plt.show()
 
 # 输出 Cabin 缺失值的具体比例
-cabin_null_percentage
+print(f"Carbin null percentage (%): {cabin_null_percentage:.2f}")
 ```
 
 我们首先来看看各个特征的分布情况：
@@ -454,3 +454,100 @@ cabin_null_percentage
 - 如果要利用 `Cabin` 信息，也可以考虑将所有缺失值归为一个新类别，例如用一个特殊值表示。
 
 在后续的分析和模型训练中，需要根据上述观察和 `Cabin` 的处理策略来决定如何利用这些类别型变量。对于 `Cabin`，特别是要决定是直接舍弃这个特征，还是通过某种方式尝试利用它，这将取决于这个特征对模型预测能力的影响。
+
+我们进一步考虑 `Name` 和 `Ticket`，如前所述，可能在里面能发现一些有用信息。
+
+对于乘客的名字，分析原始数据发现，除了 Mr., Mrs., Miss 等，还有像 Capt., Sir. 等的，可能是标识乘客的身份的单词，这些身份单词反映了乘客的社会经济地位、年龄、性别，甚至是与他人关系的信息。比如:
+
+- "Braund, Mr. Owen Harris" 中的 "Mr." 表示 Owen Harris Braund 是一位成年男性。
+- "Cumings, Mrs. John Bradley (Florence Briggs Thayer)" 中的 "Mrs." 表示 Florence Briggs Thayer（Cumings）是已婚女性，她的丈夫名为 John Bradley Cumings。
+- "Heikkinen, Miss. Laina" 中的 "Miss." 表示 Laina Heikkinen 是一位未婚女性。
+- "Palsson, Master. Gosta Leonard" 中的 "Master." 表示 Gosta Leonard Palsson 是一位年幼的男孩，这个头衔通常用于表示未成年男性。
+
+可以看出，这些头衔不仅反映了乘客的性别和婚姻状况，还可能间接反映了他们的年龄和社会地位。例如，"Master" 通常用于较年轻的男性，而 "Mr."、"Mrs." 和 "Miss." 则用于成年人，其中 "Mrs." 通常暗示该女性已婚，这在当时可能也与她的社会地位相关。
+
+在数据分析和机器学习的上下文中，从名字中提取这些头衔可以作为一个有用的特征，因为它们可能与乘客的生存率相关。历史数据表明，妇女和儿童在灾难中的生存机会通常高于成年男性，因此这些头衔可能帮助我们预测乘客的生存概率。通过将这些头衔作为模型的一个特征，我们可以更准确地预测乘客的生存情况。这种类型的特征工程是在构建预测模型时常见且有价值的步骤。
+
+我们可以通过分割名字字符串，提取出每个乘客的头衔，并分析不同头衔的分布情况。由于乘客名字具有显著的特征，第一个 `,` 前面是姓，跟着有一个空格，然后就是头衔，头衔后更正 `.`。这使分割名字字符串就比较容易了，主要运用字符串的 `split()` 方法就可以了。具体操作如下：
+
+```python
+# 提取头衔
+train_data['Title'] = train_data['Name'].apply(lambda x: x.split(', ')[1].split('. ')[0])
+
+# 分析头衔分布
+title_counts = train_data['Title'].value_counts()
+
+# 关联头衔和生存率
+title_survival_rates = (train_data.groupby('Title')['Survived'].mean().sort_values(ascending=False)).round(2)
+
+# 对罕见头衔进行分组
+rare_titles = title_counts[title_counts < 10].index  # 假设少于10个乘客的头衔为罕见头衔
+train_data['Title_Grouped'] = train_data['Title'].apply(lambda x: 'Rare' if x in rare_titles else x)
+
+# 再次计算分组后的头衔和生存率关系
+title_grouped_survival_rates = (train_data.groupby('Title_Grouped')['Survived'].mean().sort_values(ascending=False)).round(2)
+
+
+# 打印头衔分布
+print(f"title counts: {title_counts}")
+
+# 打印头衔和生存率的关系
+print(f"title survival rates: {title_survival_rates}")
+
+# 打印分组后的头衔和生存率的关系
+print(f"title grouped survival rates: {title_grouped_survival_rates}")
+
+# 设置画布和子图
+fig, axes = plt.subplots(3, 1, figsize=(10, 18))
+
+# 绘制头衔分布的条形图
+sns.barplot(x=title_counts.index, y=title_counts.values, ax=axes[0])
+axes[0].set_title('Distribution of Titles')
+axes[0].set_ylabel('Number of Passengers')
+axes[0].set_xlabel('Title')
+axes[0].tick_params(axis='x', rotation=90)
+
+# 绘制头衔和生存率的关系条形图
+sns.barplot(x=title_survival_rates.index, y=title_survival_rates.values, ax=axes[1])
+axes[1].set_title('Survival Rate by Title')
+axes[1].set_ylabel('Survival Rate')
+axes[1].set_xlabel('Title')
+axes[1].tick_params(axis='x', rotation=90)
+
+# 绘制分组后的头衔和生存率的关系条形图
+sns.barplot(x=title_grouped_survival_rates.index, y=title_grouped_survival_rates.values, ax=axes[2])
+axes[2].set_title('Survival Rate by Grouped Title')
+axes[2].set_ylabel('Survival Rate')
+axes[2].set_xlabel('Grouped Title')
+axes[2].tick_params(axis='x', rotation=90)
+
+# 调整子图间距
+plt.tight_layout()
+plt.show()
+```
+
+其结果如下：
+
+![](/assets/images/ml/titianic_factor_title_dist.png)
+
+借助于以上分析结果，我们可以发现
+
+- **Mr**：最常见的头衔，有517名乘客，表示已婚或成年男性。
+- **Miss**：第二常见，有182名未婚女性。
+- **Mrs**：有125名已婚女性。
+- **Master**：有40名年幼的男孩。
+- 其他头衔如 **Dr**、**Rev** 等出现的次数较少，表示这些头衔的乘客在样本中较为罕见。
+
+从头衔与生存率（Title Survival Rates）的关系上，我们可以发现
+- 一些罕见头衔（如 **the Countess**、**Mlle**、**Sir**、**Ms**、**Lady**、**Mme**）的生存率是100%，但这可能是由于样本量较小，不足以作出统计上的一般性结论。
+- **Mrs**（已婚女性）和 **Miss**（未婚女性）的生存率较高，分别为79%和70%，这与“妇女和儿童优先”的救生原则相吻合。
+- **Master**（年幼男孩）的生存率也相对较高，为57%。
+- **Mr**（成年男性）的生存率最低，仅为16%，反映了成年男性在灾难中的生存几率较低。
+- 有些头衔如 **Rev**（牧师）、**Don**、**Jonkheer**、**Capt**（船长）的生存率为0%，但这可能是由于样本量太小，不能确定这是否具有统计意义。
+
+从分组后的头衔与生存率（Title Grouped Survival Rates）的关系上，我们可以进一步发现
+- 将罕见头衔归类为 **Rare** 后，可以看到 **Mrs**、**Miss**、**Master** 的生存率仍然较高。
+- **Rare** 类别的生存率为44%，高于 **Mr**，但由于包含多种不同的头衔，这个数字可能不够具体。
+- **Mr** 的生存率依然是最低的，为16%。
+
+通过这些分析，我们可以看到头衔确实是一个强有力的特征，因为它在很大程度上反映了乘客的性别、社会地位和年龄，这些因素显然影响了乘客的生存率。
