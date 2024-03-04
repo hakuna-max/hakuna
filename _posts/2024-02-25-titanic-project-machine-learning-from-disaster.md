@@ -384,12 +384,73 @@ plt.show()
 
 从条形图中，我们可以观察到以下几点关于 `SibSp`（兄弟姐妹/配偶数量）和 `Parch`（父母/孩子数量）的分布：
 
-1. **`SibSp` 分布**：大多数乘客没有兄弟姐妹或配偶同行（ `SibSp` 为0）。有一些乘客有一个兄弟姐妹或配偶（ `SibSp` 为1），而有两个或更多兄弟姐妹或配偶同行的乘客数量较少。
+- **`SibSp` 分布**：大多数乘客没有兄弟姐妹或配偶同行（ `SibSp` 为0）。有一些乘客有一个兄弟姐妹或配偶（ `SibSp` 为1），而有两个或更多兄弟姐妹或配偶同行的乘客数量较少。
 
-2. **`Parch` 分布**：与 `SibSp` 类似，大多数乘客没有携带父母或孩子（ `Parch` 为0）。少数乘客有一到三个父母或孩子同行，而更多的父母或孩子同行的情况则更为罕见。
+- **`Parch` 分布**：与 `SibSp` 类似，大多数乘客没有携带父母或孩子（ `Parch` 为0）。少数乘客有一到三个父母或孩子同行，而更多的父母或孩子同行的情况则更为罕见。
 
 针对以上结果，我们在后期分析中，可能需要注意以下几点：
 
-- **特征组合**：考虑将"SibSp"和"Parch"合并为一个新特征，如家庭成员总数，这可能有助于揭示家庭规模与生存率之间的关系。
+- **特征组合**：考虑将 `SibSp` 和 `Parch` 合并为一个新特征，如家庭成员总数，这可能有助于揭示家庭规模与生存率之间的关系。
 - **模型选择**：选择对分类数据敏感度低的模型，如随机森林或梯度提升树，可能在处理这类特征时表现更好。
 - **数据预处理**：对于 `SibSp` 和 `Parch` 值较大的少数样本，可以考虑进行分组或其他形式的处理，以防止它们对模型产生不成比例的影响。
+
+
+针对类别型变量（ `Pclass`, `Sex`, `Ticket`, `Cabin`, `Embarked`），可以计算每个类别的乘客数量，并绘制条形图。该分析的代码如下：
+
+```python
+fig, ax = plt.subplots(2, 2, figsize=(14, 12))
+
+# Pclass 分布
+sns.countplot(x='Pclass', data=train_data, ax=ax[0, 0])
+ax[0, 0].set_title('Distribution of Pclass')
+ax[0, 0].set_ylabel('Number of Passengers')
+ax[0, 0].set_xlabel('Pclass')
+
+# Sex 分布
+sns.countplot(x='Sex', data=train_data, ax=ax[0, 1])
+ax[0, 1].set_title('Distribution of Sex')
+ax[0, 1].set_ylabel('Number of Passengers')
+ax[0, 1].set_xlabel('Sex')
+
+# Embarked 分布
+sns.countplot(x='Embarked', data=train_data, ax=ax[1, 0])
+ax[1, 0].set_title('Distribution of Embarked')
+ax[1, 0].set_ylabel('Number of Passengers')
+ax[1, 0].set_xlabel('Embarked')
+
+# Cabin 缺失值情况
+# 计算缺失值比例
+cabin_null_percentage = train_data['Cabin'].isnull().sum() / len(train_data) * 100
+cabin_not_null_percentage = 100 - cabin_null_percentage
+
+# 绘制 Cabin 缺失值情况的条形图
+ax[1, 1].bar(['Missing', 'Present'], [cabin_null_percentage, cabin_not_null_percentage])
+ax[1, 1].set_title('Cabin Missing Value Percentage')
+ax[1, 1].set_ylabel('Percentage')
+ax[1, 1].set_xlabel('Cabin Value Status')
+
+plt.tight_layout()
+plt.show()
+
+# 输出 Cabin 缺失值的具体比例
+cabin_null_percentage
+```
+
+我们首先来看看各个特征的分布情况：
+
+![](/assets/images/ml/titianic_factor_cate_dist.png)
+
+可以观察到以下几点关于类别型变量的分布：
+
+- **`Pclass`（船舱等级）**：不同等级的船舱乘客数量分布显示，第三等舱乘客最多，其次是第一等舱和第二等舱。
+- **`Sex`（性别）**：男性乘客数量多于女性乘客。
+- **`Embarked`（登船港口）**：大多数乘客从S港口登船，其次是C港口，最少的是Q港口。
+
+由于**`Cabin`（船舱号）**的数据确实情况严重，我们可以重点关注下：
+
+- `Cabin` 特征有约77.1%的缺失值，这是一个非常高的比例，对于这种情况，我们需要决定如何处理这些大量的缺失值。
+- 对于如此高比例的缺失值，直接删除这个特征可能是一个选择，因为它可能包含的信息太少，无法对模型构建有实质性的帮助。
+- 另一种策略是将 `Cabin` 是否缺失作为一个特征，即转换为一个二元特征，表示船舱号是否已知。
+- 如果要利用 `Cabin` 信息，也可以考虑将所有缺失值归为一个新类别，例如用一个特殊值表示。
+
+在后续的分析和模型训练中，需要根据上述观察和 `Cabin` 的处理策略来决定如何利用这些类别型变量。对于 `Cabin`，特别是要决定是直接舍弃这个特征，还是通过某种方式尝试利用它，这将取决于这个特征对模型预测能力的影响。
