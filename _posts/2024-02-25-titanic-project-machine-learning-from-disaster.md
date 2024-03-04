@@ -794,3 +794,44 @@ plt.show()
 - **票价与生存率**：高票价区间的乘客通常有更高的生存率，特别是在一等舱和二等舱中。这可能反映了经济状况较好的乘客有更多资源和更好的机会在紧急情况下生存下来。
 - **船舱等级与生存率**：在所有票价区间中，一等舱乘客的生存率普遍高于二等舱和三等舱，这强调了船舱等级作为影响生存率的重要因素。
 - **票价与船舱等级的交互作用**：虽然高票价通常意味着更高的生存率，但三等舱在非常高的票价区间的生存率反而下降，这表明单一因素（如票价）并不能完全决定生存率，船舱等级和其他因素也起着重要作用。
+
+对于头衔、性别和年龄，我们需要关注头衔对应的年龄分布、性别比例以及如何影响生存率。具体分析步骤如下：
+1. **头衔与年龄分布**：我们可以分析不同头衔对应的年龄分布，了解各个头衔年龄范围的差异。
+2. **头衔与性别比例**：分析不同头衔的性别比例，这有助于我们理解头衔与性别的关系。
+3. **头衔、性别和生存率**：我们将分析不同头衔的乘客在不同性别和年龄组下的生存率，看看这些因素是如何交互影响生存率的。
+4. **数据可视化**：使用图表来可视化上述分析，帮助直观理解不同头衔的年龄分布、性别比例以及生存率情况。
+
+示例代码：
+
+```python
+# 头衔与年龄分布
+plt.figure(figsize=(12, 6))
+sns.boxplot(x='Title', y='Age', data=train_data)
+plt.title('Age Distribution by Title')
+plt.xticks(rotation=90)
+
+# 头衔与性别比例
+plt.figure(figsize=(12, 6))
+title_sex_count = train_data.groupby('Title')['Sex'].value_counts().unstack().fillna(0)
+title_sex_count.plot(kind='bar', stacked=True)
+plt.title('Sex Proportion by Title')
+plt.ylabel('Number of Passengers')
+plt.xticks(rotation=90)
+
+# 头衔、性别和生存率
+plt.figure(figsize=(12, 6))
+sns.barplot(x='Title', y='Survived', hue='Sex', data=train_data)
+plt.title('Survival Rates by Title and Sex')
+plt.xticks(rotation=90)
+plt.legend(loc="upper left", title='Sex')
+
+plt.show()
+```
+
+这段代码首先绘制了不同头衔对应的年龄分布盒图，然后绘制了头衔与性别比例的堆叠条形图，最后展示了不同头衔和性别下的生存率条形图。通过这些图表，我们可以详细了解不同头衔的年龄分布、性别比例以及它们如何影响生存率。
+
+可以得到：
+
+![](/assets/images/ml/titanic_age_title.png)
+![](/assets/images/ml/titanic_sex_title.png)
+![](/assets/images/ml/titanic_sex_age_title.png)
