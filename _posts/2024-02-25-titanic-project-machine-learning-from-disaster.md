@@ -723,7 +723,7 @@ train_data['Age_Group'] = train_data['Age'].apply(age_group)
 age_sex_survival = train_data.groupby(['Age_Group', 'Sex'])['Survived'].mean().unstack()
 
 # 数据可视化
-plt.figure(figsize=(10, 6))
+plt.figure()
 age_sex_survival.plot(kind='bar')
 plt.title('Survival Rates by Age Group and Sex')
 plt.xlabel('Age Group')
@@ -776,7 +776,7 @@ train_data['Fare_Bin'] = pd.qcut(train_data['Fare'], 4, labels=['Low', 'Medium',
 fare_pclass_survival = train_data.groupby(['Fare_Bin', 'Pclass'])['Survived'].mean().unstack()
 
 # 可视化
-plt.figure(figsize=(10, 6))
+plt.figure()
 sns.heatmap(fare_pclass_survival, annot=True, fmt=".2f", cmap="coolwarm")
 plt.title('Survival Rates by Fare Bin and Pclass')
 plt.ylabel('Fare Bin')
