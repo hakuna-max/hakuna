@@ -253,7 +253,6 @@ survival_rates = (train_data['Survived'].value_counts(normalize=True) * 100).rou
 print(f"\nSurvival rates (%): {survival_rates}")
 
 # 绘制条形图
-plt.figure(figsize=(8, 6))
 bars = survival_counts.plot(kind='bar')
 plt.title('Survival Count in Titanic Dataset')
 plt.xlabel('Survived (1 = Survived, 0 = Not Survived)')
@@ -385,25 +384,29 @@ plt.show()
 针对类别型变量（ `Pclass`, `Sex`, `Ticket`, `Cabin`, `Embarked`），可以计算每个类别的乘客数量，并绘制条形图。该分析的代码如下：
 
 ```python
-fig, ax = plt.subplots(2, 2, figsize=(14, 12))
+plt.figure()
 
 # Pclass 分布
-sns.countplot(x='Pclass', data=train_data, ax=ax[0, 0])
-ax[0, 0].set_title('Distribution of Pclass')
-ax[0, 0].set_ylabel('Number of Passengers')
-ax[0, 0].set_xlabel('Pclass')
+plt.subplot(1, 2, 1)
+sns.countplot(x='Pclass', data=train_data)
+plt.title('Distribution of Pclass')
+plt.ylabel('Number of Passengers')
+plt.xlabel('Pclass')
 
 # Sex 分布
-sns.countplot(x='Sex', data=train_data, ax=ax[0, 1])
-ax[0, 1].set_title('Distribution of Sex')
-ax[0, 1].set_ylabel('Number of Passengers')
-ax[0, 1].set_xlabel('Sex')
+plt.subplot(1, 2, 2)
+sns.countplot(x='Sex', data=train_data)
+plt.title('Distribution of Sex')
+plt.ylabel('Number of Passengers')
+plt.xlabel('Sex')
 
+plt.figure()
 # Embarked 分布
-sns.countplot(x='Embarked', data=train_data, ax=ax[1, 0])
-ax[1, 0].set_title('Distribution of Embarked')
-ax[1, 0].set_ylabel('Number of Passengers')
-ax[1, 0].set_xlabel('Embarked')
+plt.subplot(1, 2, 1)
+sns.countplot(x='Embarked', data=train_data)
+plt.title('Distribution of Embarked')
+plt.ylabel('Number of Passengers')
+plt.xlabel('Embarked')
 
 # Cabin 缺失值情况
 # 计算缺失值比例
@@ -411,10 +414,11 @@ cabin_null_percentage = train_data['Cabin'].isnull().sum() / len(train_data) * 1
 cabin_not_null_percentage = 100 - cabin_null_percentage
 
 # 绘制 Cabin 缺失值情况的条形图
-ax[1, 1].bar(['Missing', 'Present'], [cabin_null_percentage, cabin_not_null_percentage])
-ax[1, 1].set_title('Cabin Missing Value Percentage')
-ax[1, 1].set_ylabel('Percentage')
-ax[1, 1].set_xlabel('Cabin Value Status')
+plt.subplot(1, 2, 2)
+plt.bar(['Missing', 'Present'], [cabin_null_percentage, cabin_not_null_percentage])
+plt.title('Cabin Missing Value Percentage')
+plt.ylabel('Percentage')
+plt.xlabel('Cabin Value Status')
 
 plt.tight_layout()
 plt.show()
@@ -425,7 +429,8 @@ print(f"Carbin null percentage (%): {cabin_null_percentage:.2f}")
 
 我们首先来看看各个特征的分布情况：
 
-![](/assets/images/ml/titianic_factor_cate_dist.png)
+![](/assets/images/ml/titianic_factor_cate_dist_1.png)
+![](/assets/images/ml/titianic_factor_cate_dist_2.png)
 
 可以观察到以下几点关于类别型变量的分布：
 
@@ -488,34 +493,38 @@ print(f"title grouped survival rates: {title_grouped_survival_rates}")
 fig, axes = plt.subplots(3, 1, figsize=(10, 18))
 
 # 绘制头衔分布的条形图
-sns.barplot(x=title_counts.index, y=title_counts.values, ax=axes[0])
-axes[0].set_title('Distribution of Titles')
-axes[0].set_ylabel('Number of Passengers')
-axes[0].set_xlabel('Title')
-axes[0].tick_params(axis='x', rotation=90)
+plt.figure()
+sns.barplot(x=title_counts.index, y=title_counts.values)
+plt.title('Distribution of Titles')
+plt.ylabel('Number of Passengers')
+plt.xlabel('Title')
+plt.xticks(rotation=90)
 
 # 绘制头衔和生存率的关系条形图
-sns.barplot(x=title_survival_rates.index, y=title_survival_rates.values, ax=axes[1])
-axes[1].set_title('Survival Rate by Title')
-axes[1].set_ylabel('Survival Rate')
-axes[1].set_xlabel('Title')
-axes[1].tick_params(axis='x', rotation=90)
+plt.figure()
+sns.barplot(x=title_survival_rates.index, y=title_survival_rates.values)
+plt.title('Survival Rate by Title')
+plt.ylabel('Survival Rate')
+plt.xlabel('Title')
+plt.xticks(rotation=90)
 
 # 绘制分组后的头衔和生存率的关系条形图
-sns.barplot(x=title_grouped_survival_rates.index, y=title_grouped_survival_rates.values, ax=axes[2])
-axes[2].set_title('Survival Rate by Grouped Title')
-axes[2].set_ylabel('Survival Rate')
-axes[2].set_xlabel('Grouped Title')
-axes[2].tick_params(axis='x', rotation=90)
+plt.figure()
+sns.barplot(x=title_grouped_survival_rates.index, y=title_grouped_survival_rates.values)
+plt.title('Survival Rate by Grouped Title')
+plt.ylabel('Survival Rate')
+plt.xlabel('Grouped Title')
+plt.xticks(rotation=90)
 
 # 调整子图间距
-plt.tight_layout()
 plt.show()
 ```
 
 其结果如下：
 
-![](/assets/images/ml/titianic_factor_title_dist.png)
+![](/assets/images/ml/titianic_factor_title_dist_1.png)
+![](/assets/images/ml/titianic_factor_title_dist_2.png)
+![](/assets/images/ml/titianic_factor_title_dist_3.png)
 
 借助于以上分析结果，我们可以发现
 
@@ -830,3 +839,21 @@ plt.show()
 ![](/assets/images/ml/titanic_age_title.png)
 ![](/assets/images/ml/titanic_sex_title.png)
 ![](/assets/images/ml/titanic_sex_age_title.png)
+
+从以上结果，我们可以大致发现：
+
+1. **头衔与年龄分布**：
+   - 盒图显示了每个头衔对应的年龄分布，包括中位数、四分位数和异常值。
+   - 例如，"Master"头衔通常对应较小的年龄，因为它用于称呼年幼的男孩。"Mr"和"Mrs"可能显示出较宽的年龄范围，"Miss"可能倾向于较年轻的年龄段。
+2. **头衔与性别比例**：
+   - 头衔与性别的堆叠条形图揭示了不同头衔中男性和女性的比例。
+   - 显然，"Mr"将是男性占绝大多数的头衔，而"Mrs"和"Miss"则主要是女性。"Master"头衔是专门用于男孩的。
+3. **头衔、性别和生存率**：
+   - 条形图展示了不同头衔和性别组合的生存率。
+   - 通常，女性（"Mrs"和"Miss"）的生存率要高于男性（"Mr"），"Master"头衔的儿童可能也有较高的生存率。
+   - 如果头衔与高社会地位相关（如"Sir"、"Lady"、"Countess"等），可能观察到这些头衔的生存率较高。
+
+进而得出如下结论：
+- **年龄分布**：不同头衔的年龄分布可以反映乘客的年龄结构，有助于我们理解特定头衔群体的特点。
+- **性别比例**：头衔与性别的关系揭示了社会角色和乘客身份，不同头衔的性别比例有助于我们进一步分析生存率。
+- **生存率**：头衔、性别和生存率之间的关系可以帮助我们理解在灾难中社会地位、性别和年龄是如何影响个人生存机会的。
