@@ -430,6 +430,7 @@ print(f"Carbin null percentage (%): {cabin_null_percentage:.2f}")
 我们首先来看看各个特征的分布情况：
 
 ![](/assets/images/ml/titianic_factor_cate_dist_1.png)
+
 ![](/assets/images/ml/titianic_factor_cate_dist_2.png)
 
 可以观察到以下几点关于类别型变量的分布：
