@@ -541,11 +541,72 @@ plt.show()
 
 通过这些分析，我们可以看到头衔确实是一个强有力的特征，因为它在很大程度上反映了乘客的性别、社会地位和年龄，这些因素显然影响了乘客的生存率。
 
-<!-- todo: ticket analysis -->
+下面，对 `Ticket` 特征进行分类并提取有用信息，我们可以探索票号的结构，看看是否可以从中识别出任何模式或分类。票号可能包含字母和数字，其中字母可能表示票的种类或发行地点，而数字可能是序列号。我们可以尝试将票号分解为前缀和数字两部分，以查看是否存在与生存率相关的模式。
+
+1. **提取票号前缀**：如果票号中包含字母，我们可以将这些字母作为票号的前缀。如果票号只包含数字，我们可以将其前缀设为"None"或一个特殊标记。
+2. **分析票号前缀的分布**：统计不同前缀的频率，看看哪些前缀最常见，哪些较为罕见。
+3. **关联票号前缀和生存率**：分析不同票号前缀的乘客生存率，看看是否有特定的前缀与较高或较低的生存率相关。
+4. **票号长度**：考虑分析票号长度是否与生存率有关。不同的票号长度可能反映了不同的票务系统或发行批次。
+
+代码示例如下：
+
+```python
+# 提取票号前缀
+train_data['Ticket_Prefix'] = train_data['Ticket'].apply(lambda x: ''.join(filter(str.isalpha, x.split(' ')[0])) if not x.isdigit() else 'None')
+
+# 分析票号前缀的分布
+ticket_prefix_counts = train_data['Ticket_Prefix'].value_counts()
+
+print(f"Ticket Prefix Counts: {ticket_prefix_counts}")
+
+# 关联票号前缀和生存率
+ticket_prefix_survival_rates = (train_data.groupby('Ticket_Prefix')['Survived'].mean().sort_values(ascending=False)).round(2)
+
+print(f"Ticket Prefix Survival Rates: {ticket_prefix_survival_rates}")
+
+# 可视化票号前缀分布
+plt.figure(figsize=(18, 6))
+plt.subplot(1, 2, 1)
+sns.barplot(x=ticket_prefix_counts.index, y=ticket_prefix_counts.values)
+plt.title('Distribution of Ticket Prefixes')
+plt.ylabel('Frequency')
+plt.xlabel('Ticket Prefix')
+plt.xticks(rotation=90)
+
+# 可视化票号前缀和生存率的关系
+plt.subplot(1, 2, 2)
+sns.barplot(x=ticket_prefix_survival_rates.index, y=ticket_prefix_survival_rates.values)
+plt.title('Survival Rate by Ticket Prefix')
+plt.ylabel('Survival Rate')
+plt.xlabel('Ticket Prefix')
+plt.xticks(rotation=90)
+plt.show()
+```
+
+结果如下：
+
+![](/assets/images/ml/titianic_factor_ticket_dist.png)
+
+从 Ticket Prefix Counts 图中可以看出
+- **None** 是最常见的“前缀”，表示没有明显的字母前缀的票号，有 661 张票。
+- **PC**, **CA**, **A**, **STONO** 等是接下来最常见的票号前缀。
+- 其他前缀如 **SC**, **SWPP**, **FCC** 等出现的次数相对较少。
+
+对于 Ticket Prefix Survival Rates
+- **SC** 和 **SWPP** 前缀的票号有最高的生存率（1.00），但由于样本量可能较小，这些高生存率可能不够稳健。
+- **FCC** 和 **PP** 前缀的生存率较高，分别为 0.80 和 0.67。
+- **PC** 前缀的票有较高的生存率（0.65），这可能表明持有这种票的乘客处于较高的船舱等级或有其他生存优势。
+- **None** 前缀的票，即没有明显前缀的票，生存率为 0.38，这可能是最具代表性的一般情况。
+- 有些前缀如 **SCOW**, **SOP**, **SOPP**, **SOTONO**, **AS**, **SP**, **Fa**, **FC**, **CASOTON**, **SCA** 的生存率为 0，但这些数据可能由于样本量较小而不具代表性。
+
+可以看出，票号前缀与乘客的生存率之间存在一定的关联。一些前缀似乎与较高的生存率相关联，这可能反映了乘客的船舱等级、乘客类型或票务渠道等因素； 高频前缀（如 **None**, **PC**, **CA**）可能代表了更常见的票务类别，而与之关联的生存率可能更具有一般性的指示意义；罕见前缀的生存率可能受到随机波动的影响较大，因此在对这些数据进行解释时需要更加谨慎。
+
+在构建预测模型时，考虑将票号前缀作为一个特征可能有助于提高模型的准确性，特别是那些与生存率有明显相关性的前缀。然而，对于样本量较小的前缀类别，可能需要谨慎处理，以避免模型过度拟合这些可能由于随机因素而出现的生存率模式。综合来说，我们可能由此发现票号前缀或长度与乘客生存率之间的相关性，这可以为我们提供额外的特征，用于改进预测模型。
 
 最后，我们再回过头来看看缺失值的情况。从上面的分析可以发现，`train_data` 中的 `Age`，`Cabin` 和 `Embarked` 三个特征存在缺失值。其中 `Cabin` 的缺失值占比极高（有687个缺失值，占总数据的约77.10%），可以遵循前面所述，采用直接删除该特征或转换为是否缺失的二元特征的方式可能更为合理。对于 `Age`，有177个缺失值，占总数据的约19.87%。这个比例相对较小，可以考虑使用统计方法（如中位数或根据其他特征分组的中位数）或模型预测方法来填充这些缺失值。对于 `Embarked`，仅有2个缺失值，占总数据的约0.22%。由于数量非常少，可以用出现最频繁的港口来填充这些缺失值，或者基于与Embarked最相关的特征（如 `Fare` 或 `Pclass`）来推断可能的登船港口。
 
 对于有缺失值的特征的处理策略选择问题，主要还是得检查它们是否与其他特征相关，特别是与目标值的关系，从而判断缺失值出现的随机性或是否存在某种模式。如果存在某种模式，直接删除可能并不是一个明智的选择。考察不同特征的关系就落脚到多因素分析上面了，接下来我们开始多因素分析。
 
-### 多因素分析
+### 双因素或多因素分析
 
+该部分分析主要是分析特征之间的相关性，探索特征与目标变量（生存情况）之间的关系。可以采用相关系数矩阵、热力图、点图和箱型图等方式呈现分析结果。
