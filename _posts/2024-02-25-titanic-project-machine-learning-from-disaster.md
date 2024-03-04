@@ -297,7 +297,6 @@ Name: proportion, dtype: float64
 
 ```python
 # 绘制 Age 的分布图
-plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)  # 1行2列的第一个
 sns.histplot(train_data['Age'].dropna(), kde=True, bins=30)
 plt.title('Distribution of Age')
@@ -349,7 +348,6 @@ max     80.000000  512.329200
 
 ```python
 # 绘制 SibSp 的分布
-plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)  # 1行2列的第一个
 sns.countplot(x='SibSp', data=train_data)
 plt.title("Distribution of SibSp")
@@ -805,13 +803,11 @@ plt.show()
 
 ```python
 # 头衔与年龄分布
-plt.figure(figsize=(12, 6))
 sns.boxplot(x='Title', y='Age', data=train_data)
 plt.title('Age Distribution by Title')
 plt.xticks(rotation=90)
 
 # 头衔与性别比例
-plt.figure(figsize=(12, 6))
 title_sex_count = train_data.groupby('Title')['Sex'].value_counts().unstack().fillna(0)
 title_sex_count.plot(kind='bar', stacked=True)
 plt.title('Sex Proportion by Title')
@@ -819,7 +815,6 @@ plt.ylabel('Number of Passengers')
 plt.xticks(rotation=90)
 
 # 头衔、性别和生存率
-plt.figure(figsize=(12, 6))
 sns.barplot(x='Title', y='Survived', hue='Sex', data=train_data)
 plt.title('Survival Rates by Title and Sex')
 plt.xticks(rotation=90)
