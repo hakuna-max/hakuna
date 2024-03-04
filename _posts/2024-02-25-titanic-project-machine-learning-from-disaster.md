@@ -572,7 +572,7 @@ ticket_prefix_survival_rates = (train_data.groupby('Ticket_Prefix')['Survived'].
 print(f"Ticket Prefix Survival Rates: {ticket_prefix_survival_rates}")
 
 # 可视化票号前缀分布
-plt.figure(figsize=(18, 6))
+plt.figure()
 plt.subplot(1, 2, 1)
 sns.barplot(x=ticket_prefix_counts.index, y=ticket_prefix_counts.values)
 plt.title('Distribution of Ticket Prefixes')
