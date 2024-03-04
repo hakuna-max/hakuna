@@ -490,9 +490,6 @@ print(f"title survival rates: {title_survival_rates}")
 # 打印分组后的头衔和生存率的关系
 print(f"title grouped survival rates: {title_grouped_survival_rates}")
 
-# 设置画布和子图
-fig, axes = plt.subplots(3, 1, figsize=(10, 18))
-
 # 绘制头衔分布的条形图
 plt.figure()
 sns.barplot(x=title_counts.index, y=title_counts.values)
@@ -524,7 +521,9 @@ plt.show()
 其结果如下：
 
 ![](/assets/images/ml/titianic_factor_title_dist_1.png)
+
 ![](/assets/images/ml/titianic_factor_title_dist_2.png)
+
 ![](/assets/images/ml/titianic_factor_title_dist_3.png)
 
 借助于以上分析结果，我们可以发现
@@ -838,7 +837,9 @@ plt.show()
 可以得到：
 
 ![](/assets/images/ml/titanic_age_title.png)
+
 ![](/assets/images/ml/titanic_sex_title.png)
+
 ![](/assets/images/ml/titanic_sex_age_title.png)
 
 从以上结果，我们可以大致发现：
