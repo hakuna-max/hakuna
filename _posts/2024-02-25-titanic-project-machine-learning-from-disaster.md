@@ -857,10 +857,10 @@ plt.show()
    - 箱型图显示了每个头衔对应的年龄分布，包括中位数、四分位数和异常值。从图中可以看出，不同头衔对应的年龄分布差异显著。例如，拥有**Master** 头衔的乘客通常很年轻，平均年龄约为4.5岁，这符合这些头衔通常用于孩子的预期。
    - 相比之下 **Mr** ， **Mrs**， **Rev**， **Dr** 头衔的平均年龄较老，分别约为32岁，35岁，43岁和42岁。
 2. **头衔与性别比例**：
-   - 头衔与性别的堆叠条形图揭示了不同头衔中男性和女性的比例。一些头衔是专门男性或女性使用的。例如， **Mr** 专属于男性，而 **Miss** 和**Mrs** 则专属于女性。
+   - 头衔与性别的堆叠条形图揭示了不同头衔中男性和女性的比例。一些头衔是专门男性或女性使用的。例如， **Mr** 专属于男性，而 **Miss** 和**Mrs** 则专属于女性 （显而易见:scream_cat:）。
    - 显然，**Mr** 将是男性占绝大多数的头衔，而 **Mrs** 和 **Miss** 则主要是女性。**Master** 头衔是专门用于男孩的，**Dr** 在这个数据集中主要是男性。
 3. **头衔、性别和生存率**：
-   - Survival Rates by Title and Sex条形图展示了不同头衔和性别组合的生存率。不同头衔和性别的生存率有所不同。例如，**Miss** 和 **Mrs** 的生存率相对较高，表明这些头衔的女性更有可能生存下来。
+   - Survival Rates by Title and Sex 条形图展示了不同头衔和性别组合的生存率。不同头衔和性别的生存率有所不同。例如，**Miss** 和 **Mrs** 的生存率相对较高，表明这些头衔的女性更有可能生存下来。
    - 拥有 **Master** 头衔的年轻男性也比同头衔的其他年龄组有更高的生存率，这表明在救生时儿童被给予了优先考虑。
 
 进而得出如下结论：
@@ -868,3 +868,54 @@ plt.show()
 - **年龄分布**：不同头衔的年龄分布可以反映乘客的年龄结构，有助于我们理解特定头衔群体的特点。
 - **性别比例**：头衔与性别的关系揭示了社会角色和乘客身份，不同头衔的性别比例有助于我们进一步分析生存率。
 - **生存率**：头衔、性别和生存率之间的关系可以帮助我们理解在灾难中社会地位、性别和年龄是如何影响个人生存机会的。
+
+
+对于家庭规模、性别和生存率之间的关系，我们可以通过添加 `SibSp` 和 `Parch` 创建一个家庭规模变量 `FamilySize`，然后分析其对生存率的影响，注意，家庭规模中，别忘记添加本人。示例代码如下：
+
+```python
+# 通过添加 SibSp 和 Parch 创建一个家庭规模变量，然后分析其对生存率的影响
+train_data['FamilySize'] = train_data['SibSp'] + train_data['Parch'] + 1  # 加1是为了包括乘客本人
+
+# 分析家庭规模对生存率的影响
+family_survival_rate = train_data.groupby('FamilySize')['Survived'].mean()
+
+# 分析家庭规模和性别对生存率的共同影响
+family_sex_survival_rate = train_data.groupby(['FamilySize', 'Sex'])['Survived'].mean().unstack()
+
+# 显示分析结果
+family_survival_rate, family_sex_survival_rate
+
+# 结果的可视化
+fig, axes = plt.subplots(1, 2)
+
+sns.barplot(x=family_survival_rate.index, y=family_survival_rate.values, ax=axes[0])
+axes[0].set_title("Survival Rate by Family Size")
+axes[0].set_ylabel("Survival Rate")
+axes[0].set_xlabel("Family Size")
+
+family_sex_survival_rate.plot(kind='bar', ax=axes[1])
+axes[1].set_title("Survival Rate by Family Size and Sex")
+axes[1].set_ylabel("Survival Rate")
+axes[1].set_xlabel("Family Size")
+axes[1].tick_params(axis='x', labelrotation=0) 
+
+plt.tight_layout()
+plt.show()
+```
+
+结果如下：
+
+![](/assets/images/ml/titanic_family_size_survival_analysis.png)
+
+可以发现：
+
+1. 家庭规模对生存率的影响：
+   - 家庭规模为6的乘客生存率最低，仅为13.64%。
+   - 相比之下，家庭规模在2到4人之间的乘客生存率较高，特别是当家庭规模为4时，生存率最高，达到72.41%。
+   - 独行乘客（家庭规模为1）的生存率为30.35%，虽然不是最低，但相对较低。
+   - 随着家庭规模增加到5人以上，生存率显著下降，特别是当家庭规模为8人和11人时，生存率为0%。
+2. 家庭规模和性别对生存率的共同影响：
+   - 在所有家庭规模中，女性的生存率普遍高于男性。
+   - 独行的女性乘客（家庭规模为1）的生存率约为78.57%，而独行的男性乘客生存率只有15.57%。
+   - 对于家庭规模在2到4人的乘客，女性的生存率继续保持较高水平（81.61%至84.21%），而在这个范围内，男性的生存率也有所提高，尤其是当家庭规模为4时，男性的生存率达到50%。
+   - 家庭规模大于4人时，男女乘客的生存率都有所下降，尤其是男性，家庭规模为5人及以上时几乎没有生还者。
