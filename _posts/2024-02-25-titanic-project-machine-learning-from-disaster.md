@@ -909,13 +909,53 @@ plt.show()
 
 可以发现：
 
-1. 家庭规模对生存率的影响：
+1. **家庭规模对生存率的影响**：
    - 家庭规模为6的乘客生存率最低，仅为13.64%。
    - 相比之下，家庭规模在2到4人之间的乘客生存率较高，特别是当家庭规模为4时，生存率最高，达到72.41%。
    - 独行乘客（家庭规模为1）的生存率为30.35%，虽然不是最低，但相对较低。
    - 随着家庭规模增加到5人以上，生存率显著下降，特别是当家庭规模为8人和11人时，生存率为0%。
-2. 家庭规模和性别对生存率的共同影响：
+2. **家庭规模和性别对生存率的共同影响**：
    - 在所有家庭规模中，女性的生存率普遍高于男性。
    - 独行的女性乘客（家庭规模为1）的生存率约为78.57%，而独行的男性乘客生存率只有15.57%。
    - 对于家庭规模在2到4人的乘客，女性的生存率继续保持较高水平（81.61%至84.21%），而在这个范围内，男性的生存率也有所提高，尤其是当家庭规模为4时，男性的生存率达到50%。
    - 家庭规模大于4人时，男女乘客的生存率都有所下降，尤其是男性，家庭规模为5人及以上时几乎没有生还者。
+
+对于登船港口、船舱等级和生存率之间的关系，我们任然可以聚焦于以下两点的分析：
+
+- 分析不同登船港口的乘客在不同船舱等级下的生存率。
+- 探讨登船港口是否与船舱等级和生存率之间存在交互作用。
+
+示例代码如下：
+
+```python
+# 分析不同登船口岸对生存率的影响
+embarked_pclass_survival_rate = train_data.groupby(['Embarked', 'Pclass'])['Survived'].mean().unstack()
+
+print(f"Embarked Pclass Survival Rate:\n {embarked_pclass_survival_rate}")
+
+# 结果可视化
+plt.figure()
+sns.heatmap(embarked_pclass_survival_rate, annot=True, fmt=".2f", cmap="coolwarm")
+plt.title('Survival Rate by Embarkation Port and Pclass')
+plt.ylabel('Embarkation Port')
+plt.xlabel('Pclass')
+plt.yticks(rotation=0)  # Keep the y-axis labels horizontal
+
+plt.savefig("embarked_pclass_survival_rate.png", bbox_inches="tight")
+
+plt.show()
+```
+
+结果如下：
+![](/assets/images/ml/titanic_embarked_pclass_survival_rate.png)
+
+可以发现：
+
+1. **不同登船港口和船舱等级的乘客生存率**：
+   - 对于从 C 港口（Cherbourg）登船的乘客，一等舱的生存率最高，为69.41%。二等舱和三等舱的生存率分别为52.94%和37.88%。
+   - 从 Q 港口（Queenstown）登船的乘客中，二等舱的生存率最高，为66.67%。一等舱和三等舱的生存率分别为50.00%和37.50%。
+   - 对于从 S 港口（Southampton）登船的乘客，一等舱的生存率为58.27%，二等舱为46.34%，三等舱最低，为18.98%。
+2. **登船港口与船舱等级的交互作用对生存率的影响**：
+- C 港的一等舱乘客有最高的生存率，这可能反映了经济地位较高的乘客更多选择从该港口登船，且更倾向于购买高等级船舱。
+- Q 港的数据显示，尽管乘客数量可能较少，但二等舱乘客的生存率出奇地高，可能是由于特定的社会经济因素或该港口乘客的特殊组成。
+- S 港为主要的登船港口，其所有船舱等级的生存率普遍低于从Cherbourg登船的乘客，特别是三等舱，生存率明显较低。
