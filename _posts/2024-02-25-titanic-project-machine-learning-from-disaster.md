@@ -939,7 +939,7 @@ sns.heatmap(embarked_pclass_survival_rate, annot=True, fmt=".2f", cmap="coolwarm
 plt.title('Survival Rate by Embarkation Port and Pclass')
 plt.ylabel('Embarkation Port')
 plt.xlabel('Pclass')
-plt.yticks(rotation=0)  # Keep the y-axis labels horizontal
+plt.yticks(rotation=0)
 
 plt.savefig("embarked_pclass_survival_rate.png", bbox_inches="tight")
 
@@ -947,6 +947,7 @@ plt.show()
 ```
 
 结果如下：
+
 ![](/assets/images/ml/titanic_embarked_pclass_survival_rate.png)
 
 可以发现：
@@ -959,3 +960,51 @@ plt.show()
 - C 港的一等舱乘客有最高的生存率，这可能反映了经济地位较高的乘客更多选择从该港口登船，且更倾向于购买高等级船舱。
 - Q 港的数据显示，尽管乘客数量可能较少，但二等舱乘客的生存率出奇地高，可能是由于特定的社会经济因素或该港口乘客的特殊组成。
 - S 港为主要的登船港口，其所有船舱等级的生存率普遍低于从Cherbourg登船的乘客，特别是三等舱，生存率明显较低。
+
+最后，我们借助于热图或堆叠条形图分析票号前缀、船舱等级和生存率之间的关系，分析不同票号前缀的乘客在不同船舱等级下的生存率以及探讨票号前缀是否为船舱等级和生存率之间的关系提供了额外的信息。
+
+示例代码：
+
+```python
+# 分析票号前缀与Plclass对生存率的影响
+ticket_prefix_pclass_survival_rate = train_data.groupby(['Ticket_Prefix', 'Pclass'])['Survived'].mean().unstack().fillna(0)
+
+print(f"ticket prefix pclass survival rate: {ticket_prefix_pclass_survival_rate}")
+
+sns.heatmap(ticket_prefix_pclass_survival_rate, annot=True, fmt=".2f")
+plt.title('Survival Rate by Ticket Prefix and Pclass')
+plt.ylabel('Ticket Prefix')
+plt.xlabel('Pclass')
+# plt.xticks(rotation=45)
+
+plt.savefig("ticket_prefix_pclass_survival_rate.png", bbox_inches="tight")
+
+plt.show()
+```
+
+结果如下：
+
+![](/assets/images/ml/titanic_ticket_prefix_pclass_survival_rate.png)
+
+可以发现：
+
+1. **不同票号前缀和船舱等级的乘客生存率**：
+   - 票号前缀为 **None**（即没有前缀，只有数字的票号）的乘客在一等舱有较高的生存率（约62.18%），二等舱和三等舱的生存率分别为46.99%和24.15%。
+   - **PC** 前缀的票在一等舱有相对较高的生存率（65%），而在二、三等舱的生存率为0%。
+   - 某些前缀如 **SC** 在二等舱有100%的生存率，但样本可能较小，需要谨慎解读。
+   - **LINE** 前缀的票在三等舱有25%的生存率。
+   - 其他票号前缀如 **C**、**CA**、**Fa**、**PP** 在特定船舱等级中的生存率差异显著，可能反映了不同票务类别或船票购买方式与乘客生存率的关系。
+
+2. 票号前缀对船舱等级和生存率关系的影响：
+   - 票号前缀似乎为船舱等级和生存率之间的关系提供了额外信息。特定的票号前缀可能与乘客的生存率有关，这可能反映了不同的票务类别、服务或船舱位置等因素。
+   - 例如，**None** 前缀可能代表标准票务流程，而特定的字母前缀如 **PC** 可能代表更高端的服务或特殊的船舱位置。
+
+双变量和多变量分析到一段落，结合EDA分析结果，我们再回过头来考虑下缺失值处理策略。
+
+1. **年龄（Age）**：从上面分析可以发现，年龄是一个重要因素，对生存率有明显影响。考虑到头衔与年龄分布有关，我们可以根据乘客的头衔来估算缺失的年龄值。例如，可以使用具有相同头衔乘客的年龄中位数来填充对应乘客的缺失年龄。
+2. **船舱号（Cabin）**：船舱号缺失较多，但从船舱号中可能提取的船舱等级信息对生存率有影响。如果直接删除可能会丢失大量数据。一种策略是将缺失的船舱号视为一个单独的类别，或者根据票价（Fare）和船舱等级（Pclass）来推断可能的船舱区域。
+3. **登船港口（Embarked）**：登船港口的缺失值相对较少。考虑到不同登船港口的乘客生存率存在差异，可以用最常见的登船港口来填充缺失值，或者根据票价和船舱等级进行更细致的分析来推断缺失的登船港口。
+4. **票号前缀（Ticket Prefix）**：票号前缀反映了票的类型或购买方式，可能与生存率有关。如果票号前缀缺失，可以考虑将其归类为一个特殊类别，或根据相关特征如船舱等级和票价来推断。
+
+通过结合多变量分析结果来指导缺失值的处理，我们可以更合理地填补缺失值，同时保留数据中的重要信息，从而提高后续模型分析的准确性和可靠性。在实际操作中，每种策略的选择都应基于对数据的深入理解和详细分析。
+
