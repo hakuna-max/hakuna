@@ -941,8 +941,6 @@ plt.ylabel('Embarkation Port')
 plt.xlabel('Pclass')
 plt.yticks(rotation=0)
 
-plt.savefig("embarked_pclass_survival_rate.png", bbox_inches="tight")
-
 plt.show()
 ```
 
@@ -975,9 +973,6 @@ sns.heatmap(ticket_prefix_pclass_survival_rate, annot=True, fmt=".2f")
 plt.title('Survival Rate by Ticket Prefix and Pclass')
 plt.ylabel('Ticket Prefix')
 plt.xlabel('Pclass')
-# plt.xticks(rotation=45)
-
-plt.savefig("ticket_prefix_pclass_survival_rate.png", bbox_inches="tight")
 
 plt.show()
 ```
