@@ -1042,3 +1042,91 @@ plt.show()
 进行特征工程和进一步的模型调优后，我们可以将新模型的性能与这个基线模型进行比较，这有助于量化特征工程的效果并指导后续的优化方向。
 
 ### 基线模型的构建
+
+这里我们采用 OOP 的方式呈现相关示例代码 (当然，采用过程的方式也是可以的，OOP的方式为我们呈现了清晰的结构，每个部分的职责都明确分离，便于维护和扩展)。
+
+首先我们需要在 `titanic/titanic/` 文件夹下新建几个 `.py` 文件，如下：
+
+```plaintext
+titanic/
+│
+├── pyproject.toml              # Poetry 依赖文件
+├── README.md                   # 项目说明文件
+│
+├── titanic/                    # 主项目包
+│   ├── __init__.py
+│   ├── data_processing.py      # 数据处理模块，包含数据预处理的类或函数，例如清洗数据、填充缺失值、特征编码等。
+│   ├── model.py                # 模型相关模块，包含模型训练和评估的类，例如上面定义的 BaseModel 类。
+│   └── main.py                 # 主执行脚本，用于组织数据处理流程和模型训练评估流程。
+```
+
+现在我们来设计下 `main.py` 中的代码，这是我们的主执行脚本，主要用于组织数据处理流程和模型训练评估流程。因此，这里的代码应该是读取并处理相关数据，将处理好的数据输入到构建好的模型中进行训练，当然最后应该输出相关的模型训练评估结果。假设在 `data_processing.py` 中存在一个名为 `DataProcessor` 数据处理类，其中包括相关的处理方法，比如 `preprocess()`；在 `model.py` 中构建好了一个名为 `BaseModel` 的模型类，同样，在该类下包含相关的训练和评估方法 `train()` 和 `evaluate()`。此外，由于目前建立的是一个基线模型。因此，我们不需要考虑太多的特征，也不需要太复杂的数据处理和模型，保持数据和模型尽可能简单，清晰。假设，我们当前仅考虑 `Pclass`，`Sex` 和 `Age`；分类模型采用 Logistic Regression 模型；模型评估采用准确率。这样，我们的 `main.py` 中示例代码就可以呈现为如下内容：
+
+```python
+from data_preprocessing import DataProcessor
+from model import BaseModel
+
+# 设置数据路径
+data_path = './data/raw/train.csv'
+
+# 数据处理
+processor = DataProcessor(data_path)
+data = processor.preprocess()
+
+# 模型训练与评估
+model = BaseModel()
+model.train(data[['Pclass', 'Sex', 'Age']], data['Survived'])
+accuracy = model.evaluate()
+
+print(f"Baseline Model Accuracy: {accuracy:.04f}")
+```
+
+到目前为止，我们还没有构建 `DataProcessor` 和 `BaseModel` 类及其方法，因此，还不能运行 `main.py`。接下来，根据前面的假设，我们继续完善`DataProcessor` 和 `BaseModel` 类及其方法。
+
+对于 `BaseModel` 类及其方法， 其示例代码如下：
+
+```python
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+class BaseModel:
+    def __init__(self):
+        self.model = LogisticRegression()
+        
+    def train(self, X, y):
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        self.model.fit(self.X_train, self.y_train)
+        
+    def evaluate(self):
+        y_pred = self.model.predict(self.X_test)
+        return accuracy_score(self.y_test, y_pred)
+```
+
+对于 `DataProcessor`，示例代码如下：
+
+```python
+class DataProcessor:
+    def __init__(self, data_path):
+        self.data = pd.read_csv(data_path)
+    
+    def preprocess(self):
+        # 填充缺失值
+        self.data['Age'] = self.data['Age'].fillna(self.data['Age'].median())
+        
+        # 特征编码
+        label_encoder = LabelEncoder()
+        self.data['Sex'] = label_encoder.fit_transform(self.data['Sex'])
+        
+        return self.data
+```
+
+有两点值得说明：
+
+- 关于 `Age` 的处理。结合EDA分析，我们是知道该特征有缺失值，从分布上看，也存在异常值。因此，这里用了该列的中位数来填充（可能有更好的处理方式，后面再讨论）。中位数对于异常值不敏感，相对更加稳定。
+- 关于 `Pclass` 特征。在数据处理中，我们并没有预处理该特征，主要是考虑到 `Pclass` 中的数值（1， 2， 3）能够直接反应生存概率的顺序关系（即1级舱生存概率最高，然后是2级，最后是3级）。Logistic Regression 模型可以直接处理这种有序的数值特征。 
+
+到此，我们的基线模型就构建好了，运行 `main.py`， 可以得出如下结果：
+```plaintext
+Baseline Model Accuracy: 0.8101
+```
