@@ -1291,3 +1291,139 @@ Model Accuracy (fill age by title group): 0.8101
 - **交叉验证**：通过交叉验证可以获得更稳健的性能估计，可能会揭示准确率的差异。
 - **特征重要性**：查看模型中 `Age` 特征的重要性，以判断其对模型的影响程度。
 - **其他评估指标**：除了准确率外，还可以考虑使用其他指标（如F1分数、ROC曲线下面积等）来评估模型性能的差异。
+
+现在试着使用以上方法，进一步评估采用了按头衔分类后的中位数填补 `Age` 缺失值后的模型训练情况。这里主要涉及到 `model.py` 文件的修改，如下：
+
+```python
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    f1_score,
+)  # 导入更多的评估指标
+from sklearn.model_selection import train_test_split, cross_val_score # 天骄交叉验证
+
+
+class ModelEvaluator:
+    def __init__(self, model, X_test, y_test):
+        self.model = model
+        self.X_test = X_test
+        self.y_test = y_test
+
+    def evaluate(self, cv=5):
+        y_pred = self.model.predict(self.X_test)
+        metrics = {
+            "Accuracy": accuracy_score(self.y_test, y_pred),
+            "Precision": precision_score(self.y_test, y_pred, average="binary"),
+            "Recall": recall_score(self.y_test, y_pred, average="binary"),
+            "F1 Score": f1_score(self.y_test, y_pred, average="binary"),
+        }
+
+        # 打印评估指标
+        print("Evaluation Metrics:")
+        print(pd.DataFrame([metrics], index=["Values"]))
+
+        # 打印混淆矩阵
+        conf_matrix = confusion_matrix(self.y_test, y_pred)
+        print("\nConfusion Matrix:")
+        print(
+            pd.DataFrame(
+                conf_matrix,
+                columns=["Predicted Negative", "Predicted Positive"],
+                index=["Actual Negative", "Actual Positive"],
+            )
+        )
+
+        # 交叉验证
+        if cv > 1:
+            cross_val_accuracy = np.mean(
+                cross_val_score(
+                    self.model, self.X_test, self.y_test, cv=cv, scoring="accuracy"
+                )
+            )
+            print(f"\nCross-validated Accuracy ({cv}-fold): {cross_val_accuracy:.6f}")
+
+        return metrics
+
+
+class BaseModel:
+    def __init__(self):
+        self.model = LogisticRegression()
+        self.evaluator = None  # 在训练时设置
+
+    def train(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        self.model.fit(X_train, y_train)
+        self.evaluator = ModelEvaluator(
+            self.model, X_test, y_test
+        )  # 在训练后创建评估器
+
+    def evaluate(self, cv=5):
+        if self.evaluator:
+            return self.evaluator.evaluate(cv=cv)
+        else:
+            raise ValueError("The model needs to be trained before evaluation.")
+```
+
+`main.py` 中的代码可以不用修改。但由于我们在 `ModelEvaluator` 包含了评估指标结果输出。因此，可以适当修改 `main.py`，去掉之前的打印结果的部分，如下：
+
+```python
+def train_and_evaluate_model(data, features, target):
+    """训练模型并进行评估"""
+    model = BaseModel()
+    model.train(data[features], data[target])
+    model.evaluate()
+    return 1
+
+def main():
+    # 设置数据路径
+    data_path = "./data/raw/train.csv"
+
+    # 加载和预处理数据
+    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
+
+    # 模型训练与评估
+    features = ["Pclass", "Sex", "Age"]
+    target = "Survived"
+    train_and_evaluate_model(data, features, target)
+```
+
+现在，我们可以查看采用不同的缺失值处理策略后的模型训练评估结果：
+
+对于采用 `Age` 列中位数填补的策略：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score
+Values  0.810056   0.794118  0.72973  0.760563
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.826825
+```
+
+对于采用 `Age` 列按头衔分类后的中位数填补的策略：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score
+Values  0.810056   0.794118  0.72973  0.760563
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.855079 vs. 0.826825）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用**按头衔分类后的中位数填补 `Age` 策略**，该种策略可能对未见数据具有更好的泛化能力。
