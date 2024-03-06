@@ -19,6 +19,7 @@ sidebar: []
 - [特征工程](#特征工程)
   - [基线模型的构建](#基线模型的构建)
   - [第一次尝试（缺失值的处理：不同头衔的 `Age` 中位数）](#第一次尝试缺失值的处理不同头衔的-age-中位数)
+  - [第二次尝试（`Age` 特征标准化/归一化）](#第二次尝试age-特征标准化归一化)
 
 ## Titanic 项目介绍
 
@@ -1427,3 +1428,52 @@ Cross-validated Accuracy (5-fold): 0.855079
 ```
 
 从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.855079 vs. 0.826825）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用**按头衔分类后的中位数填补 `Age` 策略**，该种策略可能对未见数据具有更好的泛化能力。
+
+
+### 第二次尝试（`Age` 特征标准化/归一化）
+
+考虑到逻辑回归会受到特征尺度的影响（在逻辑回归的情况下，模型是基于数据的线性组合），因此，现在我们尝试将 `Age` 特征标准化/归一化，然后评估模型效果。值得注意的是，标准化/归一化方法很多，比如常用的 Z 得分标准化，最小-最大归一化等。数据的不同分布将影响我们选择不同标准化/归一化的方法。比如，如果数据接近正态分布， Z 得分标准化可能是一个更好的选择。而如果数据的范围更为重要，而数据分布不是正太分布，可能最小-最大更为合适。我们先来看看经过缺失值填补后的 `Age` 分布情况 (这部分代码可以参考EDA分析中[单因素分析](#单因素分析)中的年龄可视化示例代码)。
+
+![](/assets/images/ml/titanic_distribution_age_fill_title_group.png)
+
+从左图可以发现，`Age` 数据似乎不是严格的正态分布，但也没有特别极端的偏斜。但是，右图中显示，存在少部分异常值。为此，我们需要一种更为稳健的标准化/归一化方法，以确保这些异常值不会对整体标准化结果产生过大影响。在此，我们计划采用 `RobustScaler` 来对 `Age` 进行处理。[`RobustScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html) 通过去除中位数并按四分位范围（IQR）缩放数据，可以降低异常值的影响力。
+
+现在，我们需要回到 `data_preprocessing.py` 文件，添加标准化/归一化的代码。显然，我们需要在已经填补上缺失值的数据上进行相关操作，那么，我们应该修改 `AdvancedDataProcessor` 类中的 `age_preprocess` 方法就可以了，如下：
+
+```python
+from sklearn.preprocessing import LabelEncoder, RobustScaler
+
+
+# 其他代码保持不变
+
+class AdvancedDataProcessor(DataProcessor):
+
+    # 其他代码保持不变
+    def age_preprocess(self):
+        assert self.data is not None, "Data is not set."
+
+        self.fill_age_by_title_group()
+
+        # 标准化
+        scaler = RobustScaler()
+        self.data["Age"] = scaler.fit_transform(self.data["Age"])
+
+    # 其他代码保持不变
+```
+
+然后运行 `main.py`，评估结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score
+Values  0.810056   0.794118  0.72973  0.760563
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+:rofl: 又没有变化。
