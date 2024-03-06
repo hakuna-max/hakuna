@@ -1477,3 +1477,36 @@ Cross-validated Accuracy (5-fold): 0.855079
 ```
 
 :rofl: 又没有变化。
+
+增加 ROC AUC评估指标
+
+with scaling
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.810056   0.794118  0.72973  0.760563  0.882239
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+![](/assets/images/ml/titanic_ROC_age_scaling.png)
+
+without scaling
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.810056   0.794118  0.72973  0.760563  0.882239
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+![](/assets/images/ml/titanic_ROC_age_no_scaling.png)
+
