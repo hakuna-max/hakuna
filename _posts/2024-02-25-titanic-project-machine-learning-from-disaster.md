@@ -1151,3 +1151,140 @@ class DataProcessor:
 ```plaintext
 Baseline Model Accuracy: 0.8101
 ```
+
+接下来，我们试着对 `Age` 进一步处理，查看对模型训练效果。
+
+从 EDA 的分析结果来看，不同年龄对生产率存在明显影响，对于该特征的缺失值，我们是否可以考虑运用不同头衔的中位数来填充会更好？基于该想法，我们适当修改 `data_processing.py` 中的相关类及其方法，示例代码如下：
+
+```python
+class DataProcessor:
+    def __init__(self, data_path=None):
+        if data_path:
+            self.data = pd.read_csv(data_path)
+        else:
+            self.data = None
+
+    def preprocess(self):
+        self.age_preprocess()
+        self.sex_preprocess()
+
+        return self.data
+
+    def age_preprocess(self):
+        assert self.data is not None, "Data is not set before preprocessing."
+        # 填充缺失值
+        self.data["Age"] = self.data["Age"].fillna(self.data["Age"].median())
+        return self.data
+
+    def sex_preprocess(self):
+        assert self.data is not None, "Data is not set before preprocessing."
+        # 特征编码
+        label_encoder = LabelEncoder()
+        self.data["Sex"] = label_encoder.fit_transform(self.data["Sex"])
+        return self.data
+
+
+class AdvancedDataProcessor(DataProcessor):
+    def __init__(self, data_path=None):
+        super().__init__(data_path if data_path is not None else "")
+
+    def preprocess(self):
+        self.age_preprocess()
+        super().sex_preprocess()
+        return self.data
+
+    def age_preprocess(self):
+        assert self.data is not None, "Data is not set."
+        self.fill_age_by_title_group()
+
+    def fill_age_by_title_group(self):
+        # 提取头衔
+        self.data["Title"] = self.data["Name"].apply(
+            lambda x: x.split(", ")[1].split(". ")[0]
+        )
+
+        # 对罕见头衔进行分组
+        title_counts = self.data["Title"].value_counts()
+        rare_titles = title_counts[title_counts < 10].index
+        self.data["Title_Grouped"] = self.data["Title"].apply(
+            lambda x: "Rare" if x in rare_titles else x
+        )
+
+        # 对每个分组填充年龄
+        for title_group, group in self.data.groupby("Title_Grouped"):
+            median_age = group["Age"].median()
+            self.data.loc[
+                (self.data["Age"].isnull())
+                & (self.data["Title_Grouped"] == title_group),
+                "Age",
+            ] = median_age
+```
+
+值得说明的是：
+
+- 我们适当修改了原始的 `DataProcessor` 类。主要是对 `Age` 和 `Sex` 特征的处理分开了，以便于后期继承该类的部分功能，减少代码的重复。
+- `AdvancedDataProcessor` 类是新定义的，其目的是用不同头衔的年龄中位数来填充 `Age` 列中的对应的缺失值，该部分主要工作由其中的 `fill_age_by_title_group` 方法完成。
+- 由于我们只修改了 `data_processing.py`, 训练模型不变，由此我们并不需要修改 `model.py`。但我们需要适当修改下 `main.py`,使其能使用新的处理后的数据。修改后的 `main.py` 如下：
+
+```python
+from data_preprocessing import DataProcessor, AdvancedDataProcessor # 导入新的类
+from model import BaseModel
+
+
+def load_and_preprocess_data(data_path, Processor):  # 添加了Processor这个参数
+    """加载数据并进行预处理"""
+    processor = Processor(data_path)                 # DataProcessor --> Processor
+    data = processor.preprocess()
+    return data
+
+
+def train_and_evaluate_model(data, features, target):
+    """训练模型并进行评估"""
+    model = BaseModel()
+    model.train(data[features], data[target])
+    accuracy = model.evaluate()
+    return accuracy
+
+
+def main():
+    # 设置数据路径
+    data_path = "./data/raw/train.csv"
+
+    # 加载和预处理数据
+    data = load_and_preprocess_data(data_path, AdvancedDataProcessor) # 使用 AdvancedDataProcessor 来处理相关数据
+
+    # 模型训练与评估
+    features = ["Pclass", "Sex", "Age"]
+    target = "Survived"
+    accuracy = train_and_evaluate_model(data, features, target)
+
+    print(f"Model Accuracy (fill age by title group): {accuracy}") # 增加结果区分度
+
+
+if __name__ == "__main__":
+    main()
+```
+
+需要修改的地方，均在以上代码块中进行了备注，其他暂时不需要修改。
+
+运行新的 `main.py`，可以得出相应的训练准确率的结果：
+
+```plaintext
+Model Accuracy (fill age by title group): 0.8101
+```
+
+:disappointed: 不要怀疑以上结果，你没看错。经过一通操作，模型的准确率并没有实质性变化，与基线模型的准确度完全一致。
+
+这种情况可能发生在几种情况下：
+
+1. **数据特性**：如果 `Age` 列对于模型的预测影响不大，或者不同填充策略之间的差异对最终结果没有显著影响，那么准确率可能会保持一致。
+2. **模型不敏感**：逻辑回归模型可能对这种细微的数据变化不太敏感（:question:），另外好像如果模型是基于树的算法，如随机森林或梯度提升树，在一定程度上对缺失值的处理方法不太敏感。
+3. **数据其他特征的影响较大**：如果数据集中还有其他特征对目标变量有强烈的预测作用，那么 `Age` 特征的变化可能不会对整体模型准确率产生显著影响。
+4. **结果偶然相同**：在某些情况下，两种不同的处理方法可能恰好导致模型具有相同的准确率，这可能是偶然事件，特别是在数据集较小或模型训练过程中存在随机性的情况下。
+
+有没有办法进一步验证为什么两种方法得到相同的准确率，当然，可以尝试以下方法：
+
+- **混淆矩阵**：查看每种填充方法的混淆矩阵，可能会揭示不同的错误模式。
+- **交叉验证**：通过交叉验证可以获得更稳健的性能估计，可能会揭示准确率的差异。
+- **特征重要性**：查看模型中 `Age` 特征的重要性，以判断其对模型的影响程度。
+- **其他评估指标**：除了准确率外，还可以考虑使用其他指标（如F1分数、ROC曲线下面积等）来评估模型性能的差异。
