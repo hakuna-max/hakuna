@@ -1547,9 +1547,9 @@ class ModelEvaluator:
         plt.ylim([0.0, 1.05])
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.title("Receiver Operating Characteristic (Age without scaling)")
+        plt.title("Receiver Operating Characteristic") # 建议修改该title，使图片信息更直观
         plt.legend(loc="lower right")
-        plt.savefig("fig/titanic_ROC_age_no_scaling.png", bbox_inches="tight")
+        plt.savefig("fig/ROC.png", bbox_inches="tight")
         # plt.show()
 
         return metrics
