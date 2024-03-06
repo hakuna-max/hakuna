@@ -1066,19 +1066,40 @@ titanic/
 from data_preprocessing import DataProcessor
 from model import BaseModel
 
-# 设置数据路径
-data_path = './data/raw/train.csv'
 
-# 数据处理
-processor = DataProcessor(data_path)
-data = processor.preprocess()
+def load_and_preprocess_data(data_path):
+    """加载数据并进行预处理"""
+    processor = DataProcessor(data_path)
+    data = processor.preprocess()
+    return data
 
-# 模型训练与评估
-model = BaseModel()
-model.train(data[['Pclass', 'Sex', 'Age']], data['Survived'])
-accuracy = model.evaluate()
 
-print(f"Baseline Model Accuracy: {accuracy:.04f}")
+def train_and_evaluate_model(data, features, target):
+    """训练模型并进行评估"""
+    model = BaseModel()
+    model.train(data[features], data[target])
+    accuracy = model.evaluate()
+    return accuracy
+
+
+def main():
+    # 设置数据路径
+    data_path = "./data/raw/train.csv"
+
+    # 加载和预处理数据
+    data = load_and_preprocess_data(data_path)
+
+    # 模型训练与评估
+    features = ["Pclass", "Sex", "Age"]
+    target = "Survived"
+    accuracy = train_and_evaluate_model(data, features, target)
+
+    print(f"Baseline Model Accuracy: {accuracy:.04f}")
+
+
+if __name__ == "__main__":
+    main()
+
 ```
 
 到目前为止，我们还没有构建 `DataProcessor` 和 `BaseModel` 类及其方法，因此，还不能运行 `main.py`。接下来，根据前面的假设，我们继续完善`DataProcessor` 和 `BaseModel` 类及其方法。
