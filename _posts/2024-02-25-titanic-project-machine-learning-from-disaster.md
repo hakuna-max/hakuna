@@ -1476,11 +1476,105 @@ Actual Positive                  20                  54
 Cross-validated Accuracy (5-fold): 0.855079
 ```
 
-:rofl: 又没有变化。
+:rofl: 又没有变化。我们可以还是得考虑**模型的鲁棒性**，**数据本身的特性**， **评估指标的选择**等方面对训练效果的影响。逻辑回归模型可能对 `Age` 特征的尺度不太敏感，尤其是当其他特征对预测结果有更强烈影响时（思考下如何确认？）。因此，即使进行了标准化，模型的表现也没有显著变化。从年龄的分布上看（查看[第一次尝试（缺失值的处理：不同头衔的 `Age` 中位数）](#第一次尝试缺失值的处理不同头衔的-age-中位数)中的 Distribution of Age 图）， `Age` 数据在未标准化时好像已经相对集中（即使存在少数异常值），标准化可能不会对数据的相对关系产生重大影响，因此模型性能保持不变。此外，当下使用的评估指标（准确率、精确率、召回率、F1分数和混淆矩阵）可能没有捕捉到标准化带来的细微变化。我们可以再添加分类问题中常用的其他指标，比如AUC指标。关于前面提到的**特征的影响程度**问题，基于 EDA 分析，我们相信，`Age` 特征应该是对生产率有明显影响的，因此，从这个角度上，我们暂时不打算放弃`Age` 特征。
 
-增加 ROC AUC评估指标
+现在，我们试着增加AUC指标。现在，我们只需要在 `model.py` 中的 `ModelEvaluator` 类添加相关代码就成，如下：
 
-with scaling
+```python
+# 其他保持不变
+import matplotlib.pyplot as plt
+from sklearn.metrics import (
+    # 其他保持不变
+    roc_auc_score,
+    roc_curve,
+    auc,
+)
+class ModelEvaluator:
+    def __init__(self, model, X_test, y_test):
+        self.model = model
+        self.X_test = X_test
+        self.y_test = y_test
+
+    def evaluate(self, cv=5):
+        y_pred = self.model.predict(self.X_test)
+        y_proba = self.model.predict_proba(self.X_test)[:, 1]  # 获取正类的概率
+
+        metrics = {
+            "Accuracy": accuracy_score(self.y_test, y_pred),
+            "Precision": precision_score(self.y_test, y_pred, average="binary"),
+            "Recall": recall_score(self.y_test, y_pred, average="binary"),
+            "F1 Score": f1_score(self.y_test, y_pred, average="binary"),
+            "ROC AUC": roc_auc_score(self.y_test, y_proba),  # 计算ROC AUC
+        }
+
+        # 打印评估指标
+        print("Evaluation Metrics:")
+        print(pd.DataFrame([metrics], index=["Values"]))
+
+        # 打印混淆矩阵
+        conf_matrix = confusion_matrix(self.y_test, y_pred)
+        print("\nConfusion Matrix:")
+        print(
+            pd.DataFrame(
+                conf_matrix,
+                columns=["Predicted Negative", "Predicted Positive"],
+                index=["Actual Negative", "Actual Positive"],
+            )
+        )
+
+        # 交叉验证
+        if cv > 1:
+            cross_val_accuracy = np.mean(
+                cross_val_score(
+                    self.model, self.X_test, self.y_test, cv=cv, scoring="accuracy"
+                )
+            )
+            print(f"\nCross-validated Accuracy ({cv}-fold): {cross_val_accuracy:.6f}")
+
+        # 绘制ROC曲线
+        fpr, tpr, _ = roc_curve(self.y_test, y_proba)
+        roc_auc = auc(fpr, tpr)
+
+        plt.plot(
+            fpr,
+            tpr,
+            color="darkorange",
+            lw=2,
+            label=f"ROC curve (area = {roc_auc:.6f})",
+        )
+        plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("Receiver Operating Characteristic (Age without scaling)")
+        plt.legend(loc="lower right")
+        plt.savefig("fig/titanic_ROC_age_no_scaling.png", bbox_inches="tight")
+        # plt.show()
+
+        return metrics
+
+# 其他保持不变
+```
+
+重新运行 `main.py`，不对 `Age` 进行标准化的结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.810056   0.794118  0.72973  0.760563  0.882239
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+![](/assets/images/ml/titanic_ROC_age_no_scaling.png)
+
+标准化后的结果如下：
+
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
@@ -1495,18 +1589,5 @@ Cross-validated Accuracy (5-fold): 0.855079
 ```
 ![](/assets/images/ml/titanic_ROC_age_scaling.png)
 
-without scaling
-```plaintext
-Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score   ROC AUC
-Values  0.810056   0.794118  0.72973  0.760563  0.882239
-
-Confusion Matrix:
-                 Predicted Negative  Predicted Positive
-Actual Negative                  91                  14
-Actual Positive                  20                  54
-
-Cross-validated Accuracy (5-fold): 0.855079
-```
-![](/assets/images/ml/titanic_ROC_age_no_scaling.png)
+好吧，从结果上看，我们只能得出，在逻辑回归模型下，是否对 `Age` 进行标准化，暂时并不能对其训练效果产生明显好的影响。但是，好像也没什么坏处。那么，考虑到后期，我们可能还会选择其他分类模型，暂时保留采用 `RobustScaler`的方式对 `Age` 进行标准化。
 
