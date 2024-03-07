@@ -1805,49 +1805,50 @@ class DataProcessor:
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.815642   0.797101  0.743243  0.769231  0.895302
+Values  0.798883   0.787879  0.702703  0.742857  0.883269
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  91                  14
-Actual Positive                  19                  55
+Actual Positive                  22                  52
 
-Cross-validated Accuracy (5-fold): 0.854921
+Cross-validated Accuracy (5-fold): 0.843810
 ```
 
 **分段**处理后结果：
 
 ```plaintext
 Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score  ROC AUC
-Values  0.815642    0.80597  0.72973  0.765957  0.89749
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.810056    0.80303  0.716216  0.757143  0.895302
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  92                  13
-Actual Positive                  20                  54
+Actual Positive                  21                  53
 
-Cross-validated Accuracy (5-fold): 0.854921
+Cross-validated Accuracy (5-fold): 0.838254
 ```
 
 **标准化/归一化**处理后结果：
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.826816   0.820896  0.743243  0.780142  0.894015
+Values  0.815642   0.815385  0.716216   0.76259  0.891055
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  93                  12
-Actual Positive                  19                  55
+Actual Positive                  21                  53
 
-Cross-validated Accuracy (5-fold): 0.866190
+Cross-validated Accuracy (5-fold): 0.855079
 ```
 
 结合原始处理（即直接使用 `FamilySize` 特征，而不处理），对比分析这些模型评估结果，我们可以观察到对 `FamilySize` 特征采用不同处理策略后模型性能的变化：
 
-1. **原始处理结果（未处理Family_Size）**和**标准化/归一化处理后结果**：这两种情况下的模型性能几乎相同，这表明对 `FamilySize` 特征进行标准化或归一化处理并未对模型性能产生显著影响。这可能是因为 `FamilySize` 在原始数据中的数值范围对模型的性能影响不大，或者 `FamilySize` 不是决定模型性能的主要特征。
-2. **二值化处理后结果**和**分段处理后结果**：在这两种处理策略下，模型的准确率、精确度、召回率、F1分数和ROC AUC都略有下降。特别是准确率和交叉验证准确率有所降低，这表明将 `FamilySize` 转换为二元或分段特征可能会损失一些有用的信息。二值化处理和分段处理都试图简化 `FamilySize` 特征，但这种简化可能忽略了 `FamilySize` 内部的一些细微变化，这些变化可能对预测结果有帮助。
-3. **交叉验证准确率（5-fold）**：在所有情况下，原始处理和标准化/归一化处理的交叉验证准确率最高，二值化处理和分段处理稍低。这意味着在不同子集上测试时，原始处理和标准化/归一化处理的模型更稳定。
+1. **不处理`FamilySize`**：准确率最高，达到0.826816，且其他评估指标如精确度、召回率、F1分数和ROC AUC也相对较高。混淆矩阵显示预测正确的数量最多，且交叉验证准确率（0.866190）同样是最高的。
+2. **二值化处理后**：准确率和其他指标普遍下降，准确率降到0.798883，交叉验证准确率下降到0.843810，这表明二值化处理可能损失了部分重要信息，导致模型性能下降。
+3. **分段处理后**：模型的准确率提高到0.810056，但相比不处理 `FamilySize` 的结果仍有所下降。尽管ROC AUC稍有提高，但交叉验证准确率降低到0.838254，表明模型的泛化能力减弱。
+4. **标准化/归一化处理后**：模型准确率为0.815642，虽然高于二值化和分段处理，但低于不进行任何处理的情况。交叉验证准确率也有所下降，表明在这种情况下标准化/归一化处理并没有带来预期的性能提升。
 
-整体来说， `FamilySize` 特征的原始处理和标准化/归一化处理在模型性能上表现更优，可能是因为这些处理方法保留了更多关于家庭大小的信息。虽然二值化和分段处理简化了特征，但可能会导致信息损失，对模型的泛化能力产生负面影响。在实践中，选择哪种处理方法取决于特定问题的上下文和数据的性质。通常，保留更多信息的处理方法（如标准化/归一化）在许多情况下可能更有利于模型性能的提升。因此，在该项目中，我们暂时考虑**保持 `FamilySize` 标准化/归一化后的结果**。
+整体来说，在这种情况下，**不对 `FamilySize` 进行任何处理似乎是最佳选择**，因为它为模型提供了最高的准确率和最好的泛化能力。二值化和分段处理虽然简化了特征，但同时也可能导致信息损失，影响模型性能。标准化/归一化处理在这里并没有显著提高模型性能，可能是因为 `FamilySize` 的原始分布已经足够适合模型使用。
