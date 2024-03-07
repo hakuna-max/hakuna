@@ -1606,8 +1606,6 @@ def main():
     # 加载和预处理数据
     data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
 
-    # data.to_csv("data/processed/norm_age_by_robustscaler.csv")
-
     # 模型训练与评估
     features = ["Pclass", "Sex", "Age", "SibSp"]  # 添加 "SibSp" 新特征
     target = "Survived"
