@@ -11,7 +11,7 @@
             | replace: '(p)', '℗'
             | replace: '(cleft)', '<span class="copyleft">&copy;</span>'
         -%}
-      <div>{{ copyright }}</div>
+      <div><a href="{{'/copyright' | relative_url}}">{{ copyright }}</a></div>
       <div>Powered by <a title="Jekyll is a simple, blog-aware, static site
       generator." href="https://jekyllrb.com/">Jekyll</a> &amp; <a title="Yat, yet
       another theme." href="https://github.com/jeffreytse/jekyll-theme-yat">Yat Theme</a>.</div>
