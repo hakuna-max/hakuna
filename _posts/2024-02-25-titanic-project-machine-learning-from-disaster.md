@@ -1745,10 +1745,109 @@ Cross-validated Accuracy (5-fold): 0.866190
 
 因此，尽管在单次测试集评估中，添加 `FamilySize` 并没有显著改变模型的性能，但在交叉验证中观察到一定程度的准确率提升，这表明 `FamilySize` 可能增强了模型对不同数据分布的适应性和泛化能力。精确度、召回率和F1分数的稳定性表明，`FamilySize` 特征的加入并未对模型预测正负类产生不利影响，而且在一定程度上有助于提高模型的稳健性。所以大致可以得出，`FamilySize` 是一个有价值的特征，可以保留在模型中以期进一步提升模型的准确性和泛化能力。
 
-还记得前面 EDA 分析中发现，大多数乘客没有兄弟姐妹、配偶、父母或孩子同行吗？这个特征可能会导致数据倾斜，从而对模型产生不成比例的影响，为了缓解这种影响，我们可能需要进一步处理 `FamilySize` 这个新特征。下面提供了几种策略
+还记得前面 EDA 分析中发现，大多数乘客没有兄弟姐妹、配偶、父母或孩子同行吗？这个特征可能会导致数据倾斜，从而对模型产生不成比例的影响，为了缓解这种影响，我们可能需要进一步处理 `FamilySize` 这个新特征。下面提供了几种策略:
 
 1. **二值化处理**：将 `FamilySize` 转换为二元特征，例如，将独自一人的乘客标记为0，有家庭成员的乘客标记为1。这样的处理可以突出是否有家庭成员这一信息，而不是家庭成员的具体数量。
 2. **分段（分箱）**：将 `FamilySize` 进行分段（或称为分箱），例如，将家庭大小划分为"无家庭成员"、"小家庭"和"大家庭"等几个类别。这样可以在保留一定家庭大小信息的同时，减少异常值的影响。   
 3. **归一化或标准化**：虽然 `FamilySize` 已经是数值型特征，但如果其分布非常偏斜（的确），可以考虑对其进行归一化或标准化处理，使其在更合适的数值范围内，这可能对于基于梯度的模型特别有用。
 4. **考虑与其他特征的交互**：可以进一步探索 `FamilySize` 与其他特征的交互，例如，家庭大小可能与船舱等级（`Pclass`）或票价（`Fare`）有关联。这种交互特征可能会揭示更多的信息。
 5. **特征选择**：如果通过模型评估发现 `FamilySize` 对模型性能的贡献有限，可以考虑不将其包括在最终模型中，或者使用特征选择算法来确定其重要性。
+
+更具以上策略，我们先来完成前三种，针对不同策略，建立新变量，如对二值化，我们构建一个 `Is_Alone` 的新变量；对分段，我们构建一个 `Family_Size_Group`，对于标准化，我们构建一个 `Family_Size_Scaling`。为此，我们需要回到刚才在 `DataProcessor` 中新建立的 `family_size_preprocess` 方法，对其修改，示例代码如下：
+
+```python
+class DataProcessor:
+    # 其他代码保持不变
+
+    def family_size_preprocess(self):
+        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
+        self.data['Is_Alone'] = (self.data['FamilySize'] == 1).astype(int)
+        self.data['Family_Size_Group'] = pd.cut(self.data['FamilySize'], bins=[0, 1, 4, 11], labels=['Solo', 'SmallFamily', 'LargeFamily'])
+
+# 其他代码保持不变
+```
+
+同上，我们在标准化/归一化的过程中，需要确认选择何种标准化/归一化方法。这就需要我们查看下 `FamilySize` 特征的分布情况，如下：
+
+![](/assets/images/ml/titanic_distribution_family_size.png)
+
+显然，`RobustScaler` 可能是一个更为明智的选择。将标准化/归一化的代码添加到上面的函数中，如下：
+
+```python
+class DataProcessor:
+    # 其他代码保持不变
+
+    def family_size_preprocess(self):
+        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
+        self.data["Is_Alone"] = (self.data["Family_Size"] == 1).astype(
+            int
+        )  # 二值化处理
+        
+        scaler = RobustScaler()
+        self.data["Family_Size_Scaling"] = scaler.fit_transform(
+            self.data[["Family_Size"]]
+        )  # 标准化/归一化处理
+
+        self.data["Family_Size_Group"] = pd.cut(
+            self.data["Family_Size"],
+            bins=[0, 1, 4, 11],
+            labels=["Solo", "SmallFamily", "LargeFamily"],
+        )  # 分段（分箱）处理
+        self.data = pd.get_dummies(self.data, columns=["Family_Size_Group"])
+```
+
+注意，在上面的代码中，我们使用了 `One-Hot` 的方式将分段处理后的 `Family_Size_Group` 进行了转换。`get_dummies` 会创建新的列来表示 `Family_Size_Group` 中的每个类别，列名为 `Family_Size_Group_<类别名>`。如 `Family_Size_Group_Solo`, `Family_Size_Group_SmallFamily`, `Family_Size_Group_LargeFamily`。这些列可以直接用于训练逻辑回归模型。
+
+我们回到 `main.py` 中，其他代码可以保持不变，我们只需要将新构建的特征添加到 `features` 中就可以了，考虑不同处理策略下的结果如下：
+
+**二值化处理**后结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.797101  0.743243  0.769231  0.895302
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.854921
+```
+
+**分段**处理后结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score  ROC AUC
+Values  0.815642    0.80597  0.72973  0.765957  0.89749
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  92                  13
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.854921
+```
+
+**标准化/归一化**处理后结果：
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.826816   0.820896  0.743243  0.780142  0.894015
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.866190
+```
+
+结合原始处理（即直接使用 `FamilySize` 特征，而不处理），对比分析这些模型评估结果，我们可以观察到对 `FamilySize` 特征采用不同处理策略后模型性能的变化：
+
+1. **原始处理结果（未处理Family_Size）**和**标准化/归一化处理后结果**：这两种情况下的模型性能几乎相同，这表明对 `FamilySize` 特征进行标准化或归一化处理并未对模型性能产生显著影响。这可能是因为 `FamilySize` 在原始数据中的数值范围对模型的性能影响不大，或者 `FamilySize` 不是决定模型性能的主要特征。
+2. **二值化处理后结果**和**分段处理后结果**：在这两种处理策略下，模型的准确率、精确度、召回率、F1分数和ROC AUC都略有下降。特别是准确率和交叉验证准确率有所降低，这表明将 `FamilySize` 转换为二元或分段特征可能会损失一些有用的信息。二值化处理和分段处理都试图简化 `FamilySize` 特征，但这种简化可能忽略了 `FamilySize` 内部的一些细微变化，这些变化可能对预测结果有帮助。
+3. **交叉验证准确率（5-fold）**：在所有情况下，原始处理和标准化/归一化处理的交叉验证准确率最高，二值化处理和分段处理稍低。这意味着在不同子集上测试时，原始处理和标准化/归一化处理的模型更稳定。
+
+整体来说， `FamilySize` 特征的原始处理和标准化/归一化处理在模型性能上表现更优，可能是因为这些处理方法保留了更多关于家庭大小的信息。虽然二值化和分段处理简化了特征，但可能会导致信息损失，对模型的泛化能力产生负面影响。在实践中，选择哪种处理方法取决于特定问题的上下文和数据的性质。通常，保留更多信息的处理方法（如标准化/归一化）在许多情况下可能更有利于模型性能的提升。因此，在该项目中，我们暂时考虑**保持 `FamilySize` 标准化/归一化后的结果**。
