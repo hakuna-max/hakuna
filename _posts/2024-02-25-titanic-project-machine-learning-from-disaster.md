@@ -20,6 +20,7 @@ sidebar: []
   - [基线模型的构建](#基线模型的构建)
   - [第一次尝试（缺失值的处理：不同头衔的 `Age` 中位数）](#第一次尝试缺失值的处理不同头衔的-age-中位数)
   - [第二次尝试（`Age` 特征标准化/归一化）](#第二次尝试age-特征标准化归一化)
+  - [第三次尝试（考虑 `SibSp` 和 `Parch` 特征)](#第三次尝试考虑-sibsp-和-parch-特征)
 
 ## Titanic 项目介绍
 
@@ -1193,8 +1194,8 @@ class AdvancedDataProcessor(DataProcessor):
         super().__init__(data_path if data_path is not None else "")
 
     def preprocess(self):
+        super().preprocess()
         self.age_preprocess()
-        super().sex_preprocess()
         return self.data
 
     def age_preprocess(self):
@@ -1489,6 +1490,8 @@ from sklearn.metrics import (
     roc_curve,
     auc,
 )
+
+
 class ModelEvaluator:
     def __init__(self, model, X_test, y_test):
         self.model = model
@@ -1589,5 +1592,140 @@ Cross-validated Accuracy (5-fold): 0.855079
 ```
 ![](/assets/images/ml/titanic_ROC_age_scaling.png)
 
-好吧，从结果上看，我们只能得出，在逻辑回归模型下，是否对 `Age` 进行标准化，暂时并不能对其训练效果产生明显好的影响。但是，好像也没什么坏处。那么，考虑到后期，我们可能还会选择其他分类模型，暂时保留采用 `RobustScaler`的方式对 `Age` 进行的标准化。
+好吧，从结果上看，我们只能得出，在逻辑回归模型下，是否对 `Age` 进行标准化，暂时并不能对其训练效果产生明显好的影响。但是，好像也没什么坏处。那么，考虑到后期，我们可能还会选择其他分类模型，暂时保留采用 `RobustScaler` 的方式对 `Age` 进行的标准化。
 
+### 第三次尝试（考虑 `SibSp` 和 `Parch` 特征)
+
+基于 EDA 分析，不同家庭成员数量似乎对生存率存在影响，因此，这里我们计划进一步将该因素融入到上面的模型中。先来看看分别考虑`SibSp` 和 `Parch` 特征会不会对模型训练效果产生影响。由于这两特征没有缺失值，我们可以暂时直接加入到特征中。这样，我们只需要将其添加到 `main.py` 的 `main` 函数中的 `feature`，如下：
+
+```python
+def main():
+    # 设置数据路径
+    data_path = "./data/raw/train.csv"
+
+    # 加载和预处理数据
+    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
+
+    # data.to_csv("data/processed/norm_age_by_robustscaler.csv")
+
+    # 模型训练与评估
+    features = ["Pclass", "Sex", "Age", "SibSp"]  # 添加 "SibSp" 新特征
+    target = "Survived"
+    train_and_evaluate_model(data, features, target)
+```
+
+重新运行 `main.py`，可以得到如下结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.821229   0.808824  0.743243  0.774648  0.893115
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  92                  13
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.860635
+```
+
+![](/assets/images/ml/titanic_ROC_sibsp.png)
+
+同样，加入 `Parch` 的结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.798883   0.787879  0.702703  0.742857  0.883784
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  22                  52
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+![](/assets/images/ml/titanic_ROC_parch.png)
+
+同时考虑`SibSp` 和 `Parch` 特征的结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.826816   0.820896  0.743243  0.780142  0.894273
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.860635
+```
+
+![](/assets/images/ml/titanic_ROC_sibsp_parch.png)
+
+分析这三组逻辑回归模型评估结果，我们可以发现：
+
+1. **准确率（Accuracy）**:
+   - 当考虑 `Pclass`, `Sex`, `Age`, `SibSp` 特征时，准确率为0.821229。
+   - 当考虑 `Pclass`, `Sex`, `Age`, `Parch` 特征时，准确率为0.798883，比只考虑 `SibSp` 时低。
+   - 当同时考虑 `Pclass`, `Sex`, `Age`, `SibSp`, `Parch` 特征时，准确率为0.826816，这是三个模型中最高的。
+2. **精确度（Precision）、召回率（Recall）和 F1 分数**:
+   - 精确度和召回率的最高值出现在同时考虑 `SibSp` 和 `Parch` 的情况下（精确度0.820896，召回率0.743243）。但是，召回率在同时考虑 `SibSp` 和 `Parch` 的情况下和只考虑 `SibSp` 特征的情况下是一样的，并且，对比只考虑 `Parch` 的情况下的召回率（三种情况下最低，且低于仅考虑 `Pclass`, `Sex`, `Age`时的评估结果，0.702703），这可能意味着在识别实际为正类的乘客方面，`Parch` 的添加对模型的影响有限。
+   - F1 分数是精确度和召回率的调和，最高（0.780142）也是在同时考虑 `SibSp` 和 `Parch` 时，说明模型在这种情况下平衡了精确度和召回率。
+3. **ROC AUC**:
+   - ROC AUC最高（0.894273）也是在同时考虑 `SibSp` 和 `Parch` 时，表明该模型具有较好的区分正负样本的能力。
+4. **混淆矩阵**:
+   - 在考虑 `SibSp` 和 `Parch` 时，模型预测正类和负类的能力最强，即预测为正类（生存）和负类（未生存）的数量均最多。
+5. **交叉验证准确率**:
+   - 交叉验证准确率最高（0.860635，且高于仅考虑 `Pclass`, `Sex`, `Age` 时的结果）也是在考虑所有特征时，这表明该模型具有较好的泛化能力。
+
+总体来说，无论是在单次评估还是交叉验证中，在考虑 `SibSp` 和 `Parch` 时，模型的表现最佳。这可能表明 `SibSp` 和 `Parch` 特征与目标变量（生存与否）之间存在一定的相关性（印证了EDA结论），且这两个特征一起使用时能提供更多关于乘客生存概率的信息。因此，后面，计划考虑将 `SibSp` 和 `Parch` 作为特征构建模型，以提高预测的准确性和模型的泛化能力。但是，考虑到 `Parch` 的添加可能对模型的影响有限，我们计划进一步处理特征。
+
+由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加相应代码。由于这块数据处理代码似乎并不影响前面的模型，且比较简单，因此，我们计划将其放在我们的基础模块中，即 `DataProcessor`，其他保持不变就可以了，如下：
+
+```python
+class DataProcessor:
+    # 其他不变
+
+    def preprocess(self):
+        self.age_preprocess()
+        self.sex_preprocess()
+        self.family_size_preprocess()
+
+        return self.data
+
+    # 其他不变
+
+    def family_size_preprocess():
+        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
+
+# 其他不变
+```
+
+现在回到 `main.py` 中，将 `Family_Size` 纳入到 `features` 变量中， 如下：
+
+
+```python
+# 其他不变
+    features = ["Pclass", "Sex", "Age", "Family_Size"]
+# 其他不变
+```
+
+重新运行 `main.py`，我们将得到如下结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.826816   0.820896  0.743243  0.780142  0.894015
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.866190
+```
+
+![](/assets/images/ml/titanic_ROC_family_size.png)
