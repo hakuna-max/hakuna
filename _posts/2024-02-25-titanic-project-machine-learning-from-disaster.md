@@ -1878,7 +1878,7 @@ class DataProcessor:
         self.data = pd.get_dummies(self.data, columns=["Ticket_Prefix"])
 ```
 
-由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。我们先将新生成了所有特征都纳入到前面的模型中，并评估其对模型的一项。为了考虑所有的新变量，我们对 `main.py` 进行适当修改，如下：
+由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。我们先将新生成了所有特征都纳入到前面的模型中，并评估其对模型的影响。为了考虑所有的新变量，我们对 `main.py` 进行适当修改，如下：
 
 ```python
 def main():
