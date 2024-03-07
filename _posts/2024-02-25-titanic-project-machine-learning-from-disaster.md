@@ -1753,7 +1753,7 @@ Cross-validated Accuracy (5-fold): 0.866190
 4. **考虑与其他特征的交互**：可以进一步探索 `FamilySize` 与其他特征的交互，例如，家庭大小可能与船舱等级（`Pclass`）或票价（`Fare`）有关联。这种交互特征可能会揭示更多的信息。
 5. **特征选择**：如果通过模型评估发现 `FamilySize` 对模型性能的贡献有限，可以考虑不将其包括在最终模型中，或者使用特征选择算法来确定其重要性。
 
-更具以上策略，我们先来完成前三种，针对不同策略，建立新变量，如对二值化，我们构建一个 `Is_Alone` 的新变量；对分段，我们构建一个 `Family_Size_Group`，对于标准化，我们构建一个 `Family_Size_Scaling`。为此，我们需要回到刚才在 `DataProcessor` 中新建立的 `family_size_preprocess` 方法，对其修改，示例代码如下：
+根据以上策略，我们先来完成前三种，针对不同策略，建立新变量，如对二值化，我们构建一个 `Is_Alone` 的新变量；对分段，我们构建一个 `Family_Size_Group`，对于标准化，我们构建一个 `Family_Size_Scaling`。为此，我们需要回到刚才在 `DataProcessor` 中新建立的 `family_size_preprocess` 方法，对其修改，示例代码如下：
 
 ```python
 class DataProcessor:
