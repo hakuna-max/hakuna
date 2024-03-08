@@ -1929,3 +1929,89 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 所以说，考虑 `ticket_prefix_` 特征可能为模型提供了一些额外信息，但同时也可能引入了一些不太相关的噪声，导致模型在某些方面的性能略有下降。此外，添加大量新特征后，可能也会导致模型变得更复杂，增加了过拟合的风险，同时可能会掩盖一些更重要特征的效用。这也意味着，我们需要进一步处理 `Ticket_Prefix`。
 
+
+下面，我们计划首先从降维的角度思考如何处理 `Ticket_Prefix`。降维可以减少特征空间的维度，同时尽量保留原始数据中的重要信息。下面列出了部分常用的降维方法：
+
+1. **主成分分析（PCA）**: PCA 是一种非常流行的降维技术，可以将特征转换到一个新的坐标系统中，并按照方差大小排序，保留最重要的几个主成分。对于One-Hot编码后的特征，PCA可以帮助识别哪些变量捕获了大部分信息。
+2. **截断奇异值分解（Truncated SVD）**: 与PCA类似，截断SVD适用于稀疏数据（例如，One-Hot编码后的数据）。它可以减少特征的维度，同时保留数据的关键信息。
+3. **线性判别分析（LDA）**: LDA是一种监督学习的降维技术，旨在找到一个能够最大化类别间分离的特征子空间。特别是在分类项目中，LDA可以帮助提升模型的分类能力。
+4. **t-SNE 或 UMAP**: t-SNE（t-distributed Stochastic Neighbor Embedding）和UMAP（Uniform Manifold Approximation and Projection）是两种流行的非线性降维技术，可以帮助揭示高维数据的内在结构。这些方法尤其擅长于保留局部邻域结构，因此它们在可视化聚类或组间差异方面通常具有出色的表现。t-SNE和UMAP通常用于探索性数据分析，以帮助理解数据集中可能存在的模式或聚类。虽然它们主要用于可视化，但在某些情况下，降维后的数据也可以用于训练模型，特别是在原始数据维度非常高时。不过，需要注意的是，这两种方法可能会增强数据中的噪声，所以在解释降维结果时应当谨慎。
+5. **自编码器（Autoencoders）**: 自编码器是一种基于神经网络的降维技术，特别适合于非线性降维。通过训练一个将输入数据编码成低维表示，然后再解码回原始空间的网络，自编码器可以学习到数据的有效低维表示。
+6. **特征选择**: 除了降维，还可以考虑特征选择方法来减少特征数量。基于树的方法（例如随机森林或XGBoost）可以提供特征重要性评分，帮助我们识别并选择最重要的特征。
+
+降维是一个需要实验和评估的过程。我们可能需要尝试不同的降维方法和参数设置，然后根据模型的性能和复杂度来选择最适合咱们数据的方法。
+
+考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划将新的数据处理方法放在 `data_preprocessing.py` 中的 `AdvancedDataProcessor` 类中。之所以这么处理，主要是从模块化的角度考虑。这些降维处理函数是对 `ticket_preprocess` 方法的进一步扩展，而 `ticket_preprocess` 已经定义在 `DataProcessor` 类中。通过在 `AdvancedDataProcessor` 类中添加这些方法，我们可以保持基础的数据处理流程在 `DataProcessor` 类中，同时将更高级或特定的处理流程放在继承自它的 `AdvancedDataProcessor` 类中。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。因此，对 `AdvancedDataProcessor` 类进行扩展的示例代码如下：
+
+```python
+# 其他代码保持不变
+from sklearn.decomposition import PCA
+
+
+# 其他代码保持不变
+
+class AdvancedDataProcessor(DataProcessor):
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+        self.ticket_preprocess_with_pca()
+        return self.data
+
+    def ticket_preprocess_with_pca(self):
+        self.ticket_preprocess()  # 先执行ticket_preprocess函数
+        pca = PCA(n_components=0.95)  # 设置方差阈值，保留95%的方差
+        ticket_prefix_features = [
+            col for col in self.data.columns if "Ticket_Prefix_" in col
+        ]
+        pca_transformed = pca.fit_transform(self.data[ticket_prefix_features])
+
+        # 确定PCA产生的特征数量
+        n_components = pca.n_components_
+
+        # 为PCA生成的特征创建新的列名
+        new_feature_names = [f"PCA_Ticket_{i+1}" for i in range(n_components)]
+
+        # 删除原有的ticket_prefix特征，避免冗余
+        self.data.drop(columns=ticket_prefix_features, inplace=True)
+
+        # 将PCA转换后的数据添加到data中
+        for i, feature_name in enumerate(new_feature_names):
+            self.data[feature_name] = pca_transformed[:, i]
+```
+
+以上 `ticket_preprocess_with_pca` 方法中，我们除了对 `Ticket_Prefix` 进行 PCA 的常规操作外，还对新特征进行了重新命名。主要是为了方便在 `main` 中添加相关新特征。现在回到 `main.py` 中，并将新特征纳入到模型训练中。其实我们只需要修改 `ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]` 以及 `all_features = features + ticket_prefix_features` 这两行代码就成。示例代码如下：
+
+```python
+def main():
+    # 其他代码保持不变
+
+    # 添加所有新的ticket_prefix_
+    pca_ticket_prefix_features = [col for col in data.columns if "PCA_Ticket_" in col]
+    all_features = features + pca_ticket_prefix_features
+
+    # 其他代码保持不变
+```
+
+运行新的 `main.py`，结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score  ROC AUC
+Values  0.837989   0.857143  0.72973  0.788321  0.88713
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  96                   9
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+对比前面的结果，我们可以发现：
+
+1. **使用PCA降维的Ticket_Prefix特征**: 采用 PCA 对 `Ticket_Prefix` 的One-hot编码后的数据进行降维处理后，模型的准确率提升到了0.837989，ROC AUC为0.88713，交叉验证准确率为0.849365。这表明通过PCA降维能有效提升模型性能，可能是因为降维有助于减少噪声和冗余信息，使模型能更关注于重要的特征。
+
+2. **不考虑Ticket特征**: 仅考虑 `Pclass`, `Sex`, `Age`, `Family_Size`时，模型的准确率为0.826816，ROC AUC为0.894015，交叉验证准确率为0.866190。这组结果显示了一个较强的基线，表明即使不考虑 `Ticket_Prefix` 特征，模型也能表现良好。
+
+因此，使用 PCA 降维处理 `Ticket_Prefix` 特征后，模型在准确率和交叉验证准确率上都有所提升，说明 PCA 的确有助于提取有效的特征，增强模型的预测能力。但与不考虑 `Ticket` 特征相比，虽然使用 PCA 降维的模型准确率和 ROC AUC 略有提升，但交叉验证准确率略有下降。这可能意味着 `Ticket_Prefix` 特征提供了一些有价值的信息，但这些信息的贡献相对有限。
