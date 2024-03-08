@@ -1941,7 +1941,7 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 降维是一个需要实验和评估的过程。我们可能需要尝试不同的降维方法和参数设置，然后根据模型的性能和复杂度来选择最适合咱们数据的方法。
 
-考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划将新的数据处理方法放在 `data_preprocessing.py` 中的 `AdvancedDataProcessor` 类中。之所以这么处理，主要是从模块化的角度考虑。这些降维处理函数是对 `ticket_preprocess` 方法的进一步扩展，而 `ticket_preprocess` 已经定义在 `DataProcessor` 类中。通过在 `AdvancedDataProcessor` 类中添加这些方法，我们可以保持基础的数据处理流程在 `DataProcessor` 类中，同时将更高级或特定的处理流程放在继承自它的 `AdvancedDataProcessor` 类中。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。因此，对 `AdvancedDataProcessor` 类进行扩展的示例代码如下：
+考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot 编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划将新的数据处理方法放在 `data_preprocessing.py` 中的 `AdvancedDataProcessor` 类中。之所以这么处理，主要是从模块化的角度考虑。这些降维处理函数是对 `ticket_preprocess` 方法的进一步扩展，而 `ticket_preprocess` 已经定义在 `DataProcessor` 类中。通过在 `AdvancedDataProcessor` 类中添加这些方法，我们可以保持基础的数据处理流程在 `DataProcessor` 类中，同时将更高级或特定的处理流程放在继承自它的 `AdvancedDataProcessor` 类中。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。因此，对 `AdvancedDataProcessor` 类进行扩展的示例代码如下：
 
 ```python
 # 其他代码保持不变
