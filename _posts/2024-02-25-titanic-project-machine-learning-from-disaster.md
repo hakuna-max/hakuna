@@ -1980,15 +1980,14 @@ class AdvancedDataProcessor(DataProcessor):
             self.data[feature_name] = pca_transformed[:, i]
 ```
 
-以上 `ticket_preprocess_with_pca` 方法中，我们除了对 `Ticket_Prefix` 进行 PCA 的常规操作外，还对新特征进行了重新命名。主要是为了方便在 `main` 中添加相关新特征。现在回到 `main.py` 中，并将新特征纳入到模型训练中。其实我们只需要修改 `ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]` 以及 `all_features = features + ticket_prefix_features` 这两行代码就成。示例代码如下：
+以上 `ticket_preprocess_with_pca` 方法中，我们除了对 `Ticket_Prefix` 进行 PCA 的常规操作外，还对新特征进行了重新命名。主要是为了方便在 `main` 中添加相关新特征。现在回到 `main.py` 中，并将新特征纳入到模型训练中。其实我们只需要修改 `ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]` 这行代码就成。示例代码如下：
 
 ```python
 def main():
     # 其他代码保持不变
 
     # 添加所有新的ticket_prefix_
-    pca_ticket_prefix_features = [col for col in data.columns if "PCA_Ticket_" in col]
-    all_features = features + pca_ticket_prefix_features
+    ticket_prefix_features = [col for col in data.columns if "PCA_Ticket_" in col]
 
     # 其他代码保持不变
 ```
@@ -2015,3 +2014,80 @@ Cross-validated Accuracy (5-fold): 0.849365
 2. **不考虑Ticket特征**: 仅考虑 `Pclass`, `Sex`, `Age`, `Family_Size`时，模型的准确率为0.826816，ROC AUC为0.894015，交叉验证准确率为0.866190。这组结果显示了一个较强的基线，表明即使不考虑 `Ticket_Prefix` 特征，模型也能表现良好。
 
 因此，使用 PCA 降维处理 `Ticket_Prefix` 特征后，模型在准确率和交叉验证准确率上都有所提升，说明 PCA 的确有助于提取有效的特征，增强模型的预测能力。但与不考虑 `Ticket` 特征相比，虽然使用 PCA 降维的模型准确率和 ROC AUC 略有提升，但交叉验证准确率略有下降。这可能意味着 `Ticket_Prefix` 特征提供了一些有价值的信息，但这些信息的贡献相对有限。
+
+相较于 PCA 来说，运用 SVD 技术对特征进行降维稍微会复杂些。复杂的点主要是在确认 `n_components` 上。SVD 并没有类似于 PCA 方差阈值的参数可以设置。在降维过程中，需要我们根据经验来判断 `n_components` 值的合理性。为了更为直观，我们先探索性分析，不同 `n_components` 下的累计方差以及其对应的新特征输入到逻辑回归模型中的评估指标变化情况，如下（这部分代码请参考项目文件中的 `notebook/feature_ead.ipynb` 文件）：
+
+![](/assets/images/ml/titanic_svd_num_comp.png)
+
+可以看出，当 `n_components=15` 时，累计方差达到95%。这意味着保留前 15 个 SVD 组件就可以解释原始数据约 95% 的方差，这通常是一个选择组件数量的好标准，因为它确保了大部分信息被保留，同时也减少了特征数量，降低了模型的复杂度。
+
+查看模型评估结果（右图），我们可以看到，当 `n_components=15` 时，模型的准确度、精确度、召回率、F1 得分以及 ROC AUC 都达到了较高的水平。尽管在 `n_components=19` 时，准确度和F1得分稍微有所提高，但考虑到累计方差和模型复杂性，`n_components=15` 可能是一个更加均衡和合理的选择。
+
+现在，我们继续完善 `AdvancedDataProcessor` 如下：
+
+```python
+class AdvancedDataProcessor(DataProcessor):
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+        # self.ticket_preprocess_with_pca()
+        self.ticket_preprocess_with_svd()
+        return self.data
+
+     def ticket_preprocess_with_svd(self):
+        self.ticket_preprocess() 
+        svd = TruncatedSVD(n_components=15)
+        ticket_prefix_features = [
+            col for col in self.data.columns if "Ticket_Prefix_" in col
+        ]
+
+        # 应用Truncated SVD变换
+        svd_transformed = svd.fit_transform(self.data[ticket_prefix_features])
+
+        # 创建新的特征名称
+        new_feature_names = [f"SVD_Ticket_{i+1}" for i in range(15)]
+
+        # 删除原有的ticket_prefix特征
+        self.data.drop(columns=ticket_prefix_features, inplace=True)
+
+        # 将SVD转换后的数据添加到data中
+        for i, feature_name in enumerate(new_feature_names):
+            self.data[feature_name] = svd_transformed[:, i]
+```
+
+同理，我们需要修改 `main` 函数中的 `ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]` 这行代码就成，如下：
+
+```python
+def main():
+    # 其他代码保持不变
+
+    # 添加所有新的ticket_prefix_
+    ticket_prefix_features = [col for col in data.columns if "SVD_Ticket_" in col]
+
+    # 其他代码保持不变
+```
+
+运行后的结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.832402    0.84375  0.72973  0.782609  0.886486
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  95                  10
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+与前面的结果进行对比，我们可以发现：
+
+1. **SVD降维后的模型**: 准确率为0.832402，精确度为0.84375，召回率为0.72973，F1得分为0.782609，ROC AUC为0.886486。这表明模型在预测正类时具有较好的准确性，但在识别所有正类（召回率）方面略显不足。
+2. **PCA降维后的模型**: 准确率为0.837989，精确度为0.857143，召回率为0.72973，F1得分为0.788321，ROC AUC为0.88713。这组结果在准确率、精确度和F1得分上均略优于SVD降维后的模型，说明PCA降维可能更适合这个数据集。
+3. **不降维的模型**：准确率为0.821229，精确度为0.828125，召回率为0.716216，F1得分为0.768116，ROC AUC为0.884427。这组结果均低于采用两种降维后的模型指标，说明如果要考虑 `ticket` 特征，降维处理是一个较好的选择。
+4. **不考虑 `ticket` 特征的模型**: 准确率为0.826816，精确度为0.820896，召回率为0.743243，F1得分为0.780142，ROC AUC为0.894015。尽管该模型的准确率和精确度稍低，但它在召回率和ROC AUC上表现更佳，显示了更好的综合性能和对正类的识别能力。
+
+整体来说，PCA 和 SVD 都是有效的降维方法，但在这个特定的数据集上，PCA 降维后的模型在多数评估指标上略胜一筹，可能是因为 PCA 更适合捕捉这些数据中的关键变异。虽然降维方法有助于提高模型的准确率和精确度，但不考虑 `Ticket` 特征的模型在召回率和 ROC AUC 上的表现更优。这可能意味着 `Ticket` 特征并不是非常关键的特征，或者这些特征的信息在降维过程中部分丢失。在交叉验证准确率方面，所有模型都相对一致，但不考虑 `Ticket` 特征的模型略高，这表明其泛化能力可能更强。
