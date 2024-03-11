@@ -1117,7 +1117,7 @@ from sklearn.model_selection import train_test_split
 
 class BaseModel:
     def __init__(self):
-        self.model = LogisticRegression()
+        self.model = LogisticRegression(max_iter=1000, random_state=0)
         
     def train(self, X, y):
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -1180,14 +1180,12 @@ class DataProcessor:
         assert self.data is not None, "Data is not set before preprocessing."
         # 填充缺失值
         self.data["Age"] = self.data["Age"].fillna(self.data["Age"].median())
-        return self.data
 
     def sex_preprocess(self):
         assert self.data is not None, "Data is not set before preprocessing."
         # 特征编码
         label_encoder = LabelEncoder()
         self.data["Sex"] = label_encoder.fit_transform(self.data["Sex"])
-        return self.data
 
 
 class AdvancedDataProcessor(DataProcessor):
@@ -1355,7 +1353,7 @@ class ModelEvaluator:
 
 class BaseModel:
     def __init__(self):
-        self.model = LogisticRegression()
+        self.model = LogisticRegression(max_iter=1000, random_state=0)
         self.evaluator = None  # 在训练时设置
 
     def train(self, X, y):
@@ -2037,7 +2035,7 @@ class AdvancedDataProcessor(DataProcessor):
 
      def ticket_preprocess_with_svd(self):
         self.ticket_preprocess() 
-        svd = TruncatedSVD(n_components=15)
+        svd = TruncatedSVD(n_components=15, random_state=0)
         ticket_prefix_features = [
             col for col in self.data.columns if "Ticket_Prefix_" in col
         ]
@@ -2073,7 +2071,7 @@ def main():
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
-Values  0.832402    0.84375  0.72973  0.782609  0.886486
+Values  0.832402    0.84375  0.72973  0.782609  0.885972
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
@@ -2085,7 +2083,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 与前面的结果进行对比，我们可以发现：
 
-1. **SVD降维后的模型**: 准确率为0.832402，精确度为0.84375，召回率为0.72973，F1得分为0.782609，ROC AUC为0.886486。这表明模型在预测正类时具有较好的准确性，但在识别所有正类（召回率）方面略显不足。
+1. **SVD降维后的模型**: 准确率为0.832402，精确度为0.84375，召回率为0.72973，F1得分为0.782609，ROC AUC为0.885972。这表明模型在预测正类时具有较好的准确性，但在识别所有正类（召回率）方面略显不足。
 2. **PCA降维后的模型**: 准确率为0.837989，精确度为0.857143，召回率为0.72973，F1得分为0.788321，ROC AUC为0.88713。这组结果在准确率、精确度和F1得分上均略优于SVD降维后的模型，说明PCA降维可能更适合这个数据集。
 3. **不降维的模型**：准确率为0.821229，精确度为0.828125，召回率为0.716216，F1得分为0.768116，ROC AUC为0.884427。这组结果均低于采用两种降维后的模型指标，说明如果要考虑 `ticket` 特征，降维处理是一个较好的选择。
 4. **不考虑 `ticket` 特征的模型**: 准确率为0.826816，精确度为0.820896，召回率为0.743243，F1得分为0.780142，ROC AUC为0.894015。尽管该模型的准确率和精确度稍低，但它在召回率和ROC AUC上表现更佳，显示了更好的综合性能和对正类的识别能力。
@@ -2096,9 +2094,28 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 很明显，如果仅考虑 `Ticket_Prefix` 时，我们可以将其简单的分成常见和罕见两类，从而大大减少了特征编码后的变量。这里的难点是如何定义常见和罕见？可能有同学会想到，我们可以设定一个阈值，比如选择覆盖约80%-90%的数据的前缀为常见前缀，其余的为罕见。当然是可以的。如果想更为细致的分类，我们还可以选择多个阈值区间？
 
-除此之外，我们还可以结合生存率来对 `Ticket_Prefix` 分类。比如按照生存率的 $[0, 0.2)$, $[0.2, 0.4)$，等等来对前缀进行分类。但是这里有个问题，在训练集上进行该种分类确实可行，但在预测集上如何应用相同的分组？因为预测集上我们没有生存率这个指标。这里也有大致的解决方案，比如**不直接根据生存率来分组，而是找到与生存率相关的其他特征**，比如船票价格、船舱等级等，这些在预测集上也是可用的。如果确实要使用生存率来辅助分组，可以考虑以下方法：
+除此之外，我们还可以结合生存率来对 `Ticket_Prefix` 分类。比如按照生存率的 \([0, 0.2)\), \([0.2, 0.4)\)，等等来对前缀进行分类。但是这里有个问题，在训练集上进行该种分类确实可行，但在预测集上如何应用相同的分组？因为预测集上我们没有生存率这个指标。这里也有大致的解决方案，比如**不直接根据生存率来分组，而是找到与生存率相关的其他特征**，比如船票价格、船舱等级等，这些在预测集上也是可用的。如果确实要使用生存率来辅助分组，可以考虑以下方法：
 
 1. **分组依据仅用于降维**：在训练阶段，使用生存率信息帮助确定 `Ticket_Prefix` 的分组，然后进行 One-Hot 编码和降维。在预测阶段，只需根据训练阶段确定的前缀分组对新数据进行相同的 One-Hot 编码和降维处理。这种方法的前提是能够确保新数据中的 `Ticket_Prefix` 在训练集中已有相应的处理逻辑。
 2. **创建预测时也能获取的特征**：如果依据生存率对 `Ticket_Prefix` 进行分组，可以尝试创建一个新特征，比如`Ticket_Prefix_Group`，这个特征在预测时也能够根据 `Ticket_Prefix` 直接获得，即使没有生存率信息。例如，如果在训练阶段发现某些前缀与高生存率相关，就可以将这些前缀归为一个组，预测时只需检查ticket_prefix是否属于这个组即可。
 
 下面我们试着从最为简单的分类开始，看看以上想法是否对逻辑回归模型训练效果有所影响。
+
+由于前期我们在构建 `ticket_preprocess` 方法时，提取出票号前缀后，马上就进行了 One-Hot 编码。但上面的描述，需要我们提取出前缀后，先进行相应处理，然后再进行 One-Hot 编码。为了保证模块化，这就需要我们适当的修改 `ticket_preprocess` 方法。修改的过程也较为简单，可以添加一个 `onehot` 参数，默认设置为 `True`，示例代码如下。
+
+```python
+class DataProcessor:
+    # 其他代码保持不变
+
+    def ticket_preprocess(self, onehot=True):
+        self.data["Ticket_Prefix"] = self.data["Ticket"].apply(
+            lambda x: (
+                "".join(filter(str.isalpha, x.split(" ")[0]))
+                if not x.isdigit()
+                else "None"
+            )
+        )
+
+        if onehot:
+           self.data = pd.get_dummies(self.data, columns=["Ticket_Prefix"])
+```
