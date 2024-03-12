@@ -1067,19 +1067,21 @@ titanic/
 现在我们来设计下 `main.py` 中的代码，这是我们的主执行脚本，主要用于组织数据处理流程和模型训练评估流程。因此，这里的代码应该是读取并处理相关数据，将处理好的数据输入到构建好的模型中进行训练，当然最后应该输出相关的模型训练评估结果。假设在 `data_processing.py` 中存在一个名为 `DataProcessor` 数据处理类，其中包括相关的处理方法，比如 `preprocess()`；在 `model.py` 中构建好了一个名为 `BaseModel` 的模型类，同样，在该类下包含相关的训练和评估方法 `train()` 和 `evaluate()`。此外，由于目前建立的是一个基线模型。因此，我们不需要考虑太多的特征，也不需要太复杂的数据处理和模型，保持数据和模型尽可能简单，清晰。假设，我们当前仅考虑 `Pclass`，`Sex` 和 `Age`；分类模型采用 Logistic Regression 模型；模型评估采用准确率。这样，我们的 `main.py` 中示例代码就可以呈现为如下内容：
 
 ```python
-from data_preprocessing import DataProcessor
+# titanic/titanic/main.py
+import pandas as pd
+from tools import load_data
+from refactor_data_preprocessing import DataPreprocessor
 from model import BaseModel
 
 
-def load_and_preprocess_data(data_path):
-    """加载数据并进行预处理"""
-    processor = DataProcessor(data_path)
-    data = processor.preprocess()
-    return data
+def load_and_preprocess_data(data_path, columns):
+    data = load_data(data_path)
+    processor = DataPreprocessor(data, columns=columns)
+    processed_data, new_columns = processor.preprocess()
+    return processed_data, new_columns
 
 
 def train_and_evaluate_model(data, features, target):
-    """训练模型并进行评估"""
     model = BaseModel()
     model.train(data[features], data[target])
     accuracy = model.evaluate()
@@ -1087,15 +1089,15 @@ def train_and_evaluate_model(data, features, target):
 
 
 def main():
-    # 设置数据路径
     data_path = "./data/raw/train.csv"
+    data, new_feature_names = load_and_preprocess_data(data_path, columns=["Sex"])
 
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path)
-
-    # 模型训练与评估
-    features = ["Pclass", "Sex", "Age"]
+    features = [
+        "Pclass",
+        "Age",
+    ] + new_feature_names
     target = "Survived"
+
     accuracy = train_and_evaluate_model(data, features, target)
 
     print(f"Baseline Model Accuracy: {accuracy:.04f}")
@@ -1111,110 +1113,125 @@ if __name__ == "__main__":
 对于 `BaseModel` 类及其方法， 其示例代码如下：
 
 ```python
+# titanic/titanic/model.py
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
-class BaseModel:
-    def __init__(self):
-        self.model = LogisticRegression(max_iter=1000, random_state=0)
-        
-    def train(self, X, y):
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        self.model.fit(self.X_train, self.y_train)
-        
+
+class ModelEvaluator:
+    def __init__(self, model, X_test, y_test):
+        self.model = model
+        self.X_test = X_test
+        self.y_test = y_test
+
     def evaluate(self):
         y_pred = self.model.predict(self.X_test)
         return accuracy_score(self.y_test, y_pred)
+
+
+class BaseModel:
+    def __init__(self):
+        self.model = LogisticRegression(max_iter=1000, random_state=0)
+        self.evaluator = None  # 在训练时设置
+
+    def train(self, X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        self.model.fit(X_train, y_train)
+        self.evaluator = ModelEvaluator(
+            self.model, X_test, y_test
+        )  # 在训练后创建评估器
+
+    def evaluate(self):
+        if self.evaluator:
+            return self.evaluator.evaluate()
+        else:
+            raise ValueError("The model needs to be trained before evaluation.")
 ```
 
 对于 `DataProcessor`，示例代码如下：
 
 ```python
-class DataProcessor:
-    def __init__(self, data_path):
-        self.data = pd.read_csv(data_path)
-    
+# titanic/titanic/data_preprocessing.py
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+
+
+class BaseProcessor:
+    def __init__(self, data):
+        self.data = data
+
+
+class AgeProcessor(BaseProcessor):
+    def fill_missing_values(self):
+        self.data["Age"] = self.data["Age"].fillna(self.data["Age"].median())
+        return self
+
+
+class CategoricalEncoder:
+    def __init__(self, data):
+        self.data = data
+        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+
+    def one_hot_encode(self, columns):
+        new_columns = []
+        for column in columns:
+            encoded = self.encoder.fit_transform(self.data[[column]])
+            new_cols = [f"{column}_{cat}" for cat in self.encoder.categories_[0]]
+            new_columns.extend(new_cols)
+            self.data.drop(column, axis=1, inplace=True)
+            self.data[new_cols] = encoded
+        return self, new_columns
+
+
+class DataPreprocessor:
+    def __init__(self, data, columns):
+        self.data = data
+        self.columns = columns
+
     def preprocess(self):
-        # 填充缺失值
-        self.data['Age'] = self.data['Age'].fillna(self.data['Age'].median())
-        
-        # 特征编码
-        label_encoder = LabelEncoder()
-        self.data['Sex'] = label_encoder.fit_transform(self.data['Sex'])
-        
-        return self.data
+        AgeProcessor(self.data).fill_missing_values()
+
+        encoder = CategoricalEncoder(self.data)
+        _, new_columns = encoder.one_hot_encode(self.columns)
+        self.data = encoder.data
+        return self.data, new_columns
 ```
 
 有两点值得说明：
 
-- 关于 `Age` 的处理。结合EDA分析，我们是知道该特征有缺失值，从分布上看，也存在异常值。因此，这里用了该列的中位数来填充（可能有更好的处理方式，后面再讨论）。中位数对于异常值不敏感，相对更加稳定。
-- 关于 `Pclass` 特征。在数据处理中，我们并没有预处理该特征，主要是考虑到 `Pclass` 中的数值（1， 2， 3）能够直接反应生存概率的顺序关系（即1级舱生存概率最高，然后是2级，最后是3级）。Logistic Regression 模型可以直接处理这种有序的数值特征。 
+- 关于 `Age` 的处理。结合 EDA 分析，我们是知道该特征有缺失值，从分布上看，也存在异常值。因此，这里用了该列的中位数来填充（可能有更好的处理方式，后面再讨论）。中位数对于异常值不敏感，相对更加稳定。
+- 关于 `Pclass` 特征。在数据处理中，我们并没有预处理该特征，主要是考虑到 `Pclass` 中的数值（1， 2， 3）能够直接反应生存概率的顺序关系（即1级舱生存概率最高，然后是2级，最后是3级）。Logistic Regression 模型可以直接处理这种有序的数值特征。
+- 关于 `Sex` 特征。由于该特征的原始值为 `male` 和 `female`。不能直接输入到逻辑回归模型中，需要对其进行编码转换，在这里我们选择了 One-Hot 的方式。考虑到后续还要用该方法对其他类别型数据进行处理，所以，在这我们专门构建了一个类。此外，为了方便在 `main` 函数中增加处理后的特征，特意在该类中 `one_hot_encoder` 方法中返回了新构建的特征名称。
 
 到此，我们的基线模型就构建好了，运行 `main.py`， 可以得出如下结果：
 ```plaintext
-Baseline Model Accuracy: 0.8101
+Baseline Model Accuracy: 0.810056
 ```
 
 ### 第一次尝试（缺失值的处理：不同头衔的 `Age` 中位数）
 
-接下来，我们试着对 `Age` 进一步处理，查看对模型训练效果。
+接下来，我们试着对 `Age` 进一步处理，查看对模型训练效果的影响。
 
-从 EDA 的分析结果来看，不同年龄对生产率存在明显影响，对于该特征的缺失值，我们是否可以考虑运用不同头衔的中位数来填充会更好？基于该想法，我们适当修改 `data_processing.py` 中的相关类及其方法，示例代码如下：
+从 EDA 的分析结果来看，不同年龄对生存率存在明显影响，对于该特征的缺失值，我们是否可以考虑运用不同头衔的中位数来填充会更好？基于该想法，我们适当修改 `data_preprocessing.py` 中的相关类及其方法，示例代码如下：
 
 ```python
-class DataProcessor:
-    def __init__(self, data_path=None):
-        if data_path:
-            self.data = pd.read_csv(data_path)
-        else:
-            self.data = None
-
-    def preprocess(self):
-        self.age_preprocess()
-        self.sex_preprocess()
-
-        return self.data
-
-    def age_preprocess(self):
-        assert self.data is not None, "Data is not set before preprocessing."
-        # 填充缺失值
-        self.data["Age"] = self.data["Age"].fillna(self.data["Age"].median())
-
-    def sex_preprocess(self):
-        assert self.data is not None, "Data is not set before preprocessing."
-        # 特征编码
-        label_encoder = LabelEncoder()
-        self.data["Sex"] = label_encoder.fit_transform(self.data["Sex"])
-
-
-class AdvancedDataProcessor(DataProcessor):
-    def __init__(self, data_path=None):
-        super().__init__(data_path if data_path is not None else "")
-
-    def preprocess(self):
-        super().preprocess()
-        self.age_preprocess()
-        return self.data
-
-    def age_preprocess(self):
-        assert self.data is not None, "Data is not set."
-        self.fill_age_by_title_group()
+# titanic/titanic/data_preprocessing.py
+class AgeProcessor(BaseProcessor):
+    # 其他代码保持不变
 
     def fill_age_by_title_group(self):
-        # 提取头衔
         self.data["Title"] = self.data["Name"].apply(
             lambda x: x.split(", ")[1].split(". ")[0]
         )
-
-        # 对罕见头衔进行分组
         title_counts = self.data["Title"].value_counts()
         rare_titles = title_counts[title_counts < 10].index
         self.data["Title_Grouped"] = self.data["Title"].apply(
             lambda x: "Rare" if x in rare_titles else x
         )
 
-        # 对每个分组填充年龄
         for title_group, group in self.data.groupby("Title_Grouped"):
             median_age = group["Age"].median()
             self.data.loc[
@@ -1222,59 +1239,30 @@ class AdvancedDataProcessor(DataProcessor):
                 & (self.data["Title_Grouped"] == title_group),
                 "Age",
             ] = median_age
+
+        return self
+
+
+class DataPreprocessor:
+    # 其他代码保持不变
+
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group() # 使用新方法
+
+        # 其他代码保持不变
+        return self.data, new_columns
 ```
 
 值得说明的是：
 
-- 我们适当修改了原始的 `DataProcessor` 类。主要是对 `Age` 和 `Sex` 特征的处理分开了，以便于后期继承该类的部分功能，减少代码的重复。
-- `AdvancedDataProcessor` 类是新定义的，其目的是用不同头衔的年龄中位数来填充 `Age` 列中的对应的缺失值，该部分主要工作由其中的 `fill_age_by_title_group` 方法完成。
-- 由于我们只修改了 `data_processing.py`, 训练模型不变，由此我们并不需要修改 `model.py`。但我们需要适当修改下 `main.py`,使其能使用新的处理后的数据。修改后的 `main.py` 如下：
+- 我们在 `AgeProcessor` 类中增加了一个新方法 `fill_age_by_title_group`，该方法实现一下目的：按不同头衔的年龄中位数来填充 `Age` 列中的对应的缺失值。
+- 我们适当修改了原始的 `DataProcessor` 类。主要是用 `fill_age_by_title_group` 方法替代了之前的 `fill_missing_values` 方法。
+- 由于我们只修改了 `data_preprocessing.py`, 训练模型不变，由此我们并不需要修改 `model.py` 以及 `main.py`。
 
-```python
-from data_preprocessing import DataProcessor, AdvancedDataProcessor # 导入新的类
-from model import BaseModel
-
-
-def load_and_preprocess_data(data_path, Processor):  # 添加了Processor这个参数
-    """加载数据并进行预处理"""
-    processor = Processor(data_path)                 # DataProcessor --> Processor
-    data = processor.preprocess()
-    return data
-
-
-def train_and_evaluate_model(data, features, target):
-    """训练模型并进行评估"""
-    model = BaseModel()
-    model.train(data[features], data[target])
-    accuracy = model.evaluate()
-    return accuracy
-
-
-def main():
-    # 设置数据路径
-    data_path = "./data/raw/train.csv"
-
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor) # 使用 AdvancedDataProcessor 来处理相关数据
-
-    # 模型训练与评估
-    features = ["Pclass", "Sex", "Age"]
-    target = "Survived"
-    accuracy = train_and_evaluate_model(data, features, target)
-
-    print(f"Model Accuracy (fill age by title group): {accuracy}") # 增加结果区分度
-
-
-if __name__ == "__main__":
-    main()
-```
-
-需要修改的地方，均在以上代码块中进行了备注，其他暂时不需要修改。
-
-运行新的 `main.py`，可以得出相应的训练准确率的结果：
+重新运行 `main.py`，可以得出相应的训练准确率的结果：
 
 ```plaintext
-Model Accuracy (fill age by title group): 0.8101
+Model Accuracy (fill age by title group): 0.810056
 ```
 
 :disappointed: 不要怀疑以上结果，你没看错。一通操作猛如虎，模型的准确率并没有实质性变化，与基线模型的准确度完全一致。
@@ -1282,7 +1270,7 @@ Model Accuracy (fill age by title group): 0.8101
 这种情况可能发生在几种情况下：
 
 1. **数据特性**：如果 `Age` 列对于模型的预测影响不大，或者不同填充策略之间的差异对最终结果没有显著影响，那么准确率可能会保持一致。
-2. **模型不敏感**：逻辑回归模型可能对这种细微的数据变化不太敏感（:question:），另外好像如果模型是基于树的算法，如随机森林或梯度提升树，在一定程度上对缺失值的处理方法不太敏感。
+2. **模型不敏感**：逻辑回归模型可能对这种细微的数据变化不太敏感（:question:），一般情况下，基于树的算法，如随机森林或梯度提升树，在一定程度上对缺失值的处理方法不太敏感。
 3. **数据其他特征的影响较大**：如果数据集中还有其他特征对目标变量有强烈的预测作用，那么 `Age` 特征的变化可能不会对整体模型准确率产生显著影响。
 4. **结果偶然相同**：在某些情况下，两种不同的处理方法可能恰好导致模型具有相同的准确率，这可能是偶然事件，特别是在数据集较小或模型训练过程中存在随机性的情况下。
 
@@ -1293,9 +1281,10 @@ Model Accuracy (fill age by title group): 0.8101
 - **特征重要性**：查看模型中 `Age` 特征的重要性，以判断其对模型的影响程度。
 - **其他评估指标**：除了准确率外，还可以考虑使用其他指标（如F1分数、ROC曲线下面积等）来评估模型性能的差异。
 
-现在试着使用以上方法，进一步评估采用了按头衔分类后的中位数填补 `Age` 缺失值后的模型训练情况。这里主要涉及到 `model.py` 文件的修改，如下：
+现在试着增加模型评估指标，进一步评估采用了按头衔分类后的中位数填补 `Age` 缺失值后的模型训练情况。这里主要涉及到 `model.py` 文件的修改，示例代码如下：
 
 ```python
+# titanic/titian/model.py
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -1305,8 +1294,15 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
-)  # 导入更多的评估指标
-from sklearn.model_selection import train_test_split, cross_val_score # 天骄交叉验证
+    roc_auc_score,
+    roc_curve,
+    auc,
+)
+from sklearn.model_selection import train_test_split, cross_val_score
+
+import matplotlib.pyplot as plt
+
+plt.style.use(style="configs/matplotlib.mplstyle")
 
 
 class ModelEvaluator:
@@ -1317,11 +1313,14 @@ class ModelEvaluator:
 
     def evaluate(self, cv=5):
         y_pred = self.model.predict(self.X_test)
+        y_proba = self.model.predict_proba(self.X_test)[:, 1]  # 获取正类的概率
+
         metrics = {
             "Accuracy": accuracy_score(self.y_test, y_pred),
             "Precision": precision_score(self.y_test, y_pred, average="binary"),
             "Recall": recall_score(self.y_test, y_pred, average="binary"),
             "F1 Score": f1_score(self.y_test, y_pred, average="binary"),
+            "ROC AUC": roc_auc_score(self.y_test, y_proba),  # 计算ROC AUC
         }
 
         # 打印评估指标
@@ -1347,6 +1346,27 @@ class ModelEvaluator:
                 )
             )
             print(f"\nCross-validated Accuracy ({cv}-fold): {cross_val_accuracy:.6f}")
+
+        # 绘制ROC曲线
+        fpr, tpr, _ = roc_curve(self.y_test, y_proba)
+        roc_auc = auc(fpr, tpr)
+
+        plt.plot(
+            fpr,
+            tpr,
+            color="darkorange",
+            lw=2,
+            label=f"ROC curve (area = {roc_auc:.6f})",
+        )
+        plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("Receiver Operating Characteristic")
+        plt.legend(loc="lower right")
+        plt.savefig("./fig/ROC.png", bbox_inches="tight")
+        # plt.show()
 
         return metrics
 
@@ -1375,24 +1395,29 @@ class BaseModel:
 `main.py` 中的代码可以不用修改。但由于我们在 `ModelEvaluator` 包含了评估指标结果输出。因此，可以适当修改 `main.py`，去掉之前的打印结果的部分，如下：
 
 ```python
+# titanic/titanic/main.py
+# 其他代码保持不变
 def train_and_evaluate_model(data, features, target):
-    """训练模型并进行评估"""
     model = BaseModel()
     model.train(data[features], data[target])
     model.evaluate()
     return 1
 
+
 def main():
-    # 设置数据路径
     data_path = "./data/raw/train.csv"
+    data, new_feature_names = load_and_preprocess_data(data_path, columns=["Sex"])
 
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-
-    # 模型训练与评估
-    features = ["Pclass", "Sex", "Age"]
+    features = [
+        "Pclass",
+        "Age",
+    ] + new_feature_names
+    print(features)
     target = "Survived"
+
     train_and_evaluate_model(data, features, target)
+
+# 其他代码保持不变
 ```
 
 现在，我们可以查看采用不同的缺失值处理策略后的模型训练评估结果：
@@ -1401,34 +1426,34 @@ def main():
 
 ```plaintext
 Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score
-Values  0.810056   0.794118  0.72973  0.760563
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.810056   0.794118  0.72973  0.760563  0.872008
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  91                  14
 Actual Positive                  20                  54
 
-Cross-validated Accuracy (5-fold): 0.826825
+Cross-validated Accuracy (5-fold): 0.827143
 ```
 
 对于采用 `Age` 列按头衔分类后的中位数填补的策略：
 
 ```plaintext
-Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score
-Values  0.810056   0.794118  0.72973  0.760563
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.810056   0.794118  0.72973  0.760563  0.881982
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  91                  14
 Actual Positive                  20                  54
 
-Cross-validated Accuracy (5-fold): 0.855079
+Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.855079 vs. 0.826825）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用**按头衔分类后的中位数填补 `Age` 策略**，该种策略可能对未见数据具有更好的泛化能力。
+从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这也表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.849365 vs. 0.827143）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用**按头衔分类后的中位数填补 `Age` 策略**，该种策略可能对未见数据具有更好的泛化能力。
 
+<hr>
 
 ### 第二次尝试（`Age` 特征标准化/归一化）
 
@@ -2145,3 +2170,4 @@ class DataProcessor:
         if onehot:
            self.data = pd.get_dummies(self.data, columns=["Ticket_Prefix"])
 ```
+
