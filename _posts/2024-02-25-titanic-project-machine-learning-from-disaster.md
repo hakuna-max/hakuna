@@ -2016,12 +2016,20 @@ def dimension_preprocess_data(data, method="PCA", n_components=0.95, random_stat
 按照如上处理，我们在 `main` 函数中，只需要在数据基本处理后，实例化 `DimensionalityReducer`类， 然后将新变量添加到特征变量中就好，示例代码如下：
 
 ```python
+def dimension_reduce(data, method="PCA", n_components=0.95, random_state=None):
+    reducer = DimensionalityReducer(
+        method=method, n_components=n_components, random_state=random_state
+    )
+    data, new_feature_names = reducer.apply_reduction(data)
+    return data, new_feature_names
+
 def main():
     data_path = "./data/raw/train.csv"
 
     data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-    reducer = DimensionalityReducer(method="PCA") # 如要使用svd降维，请修改参数为 method="SVD", n_components=5, random_state=0
-    data, new_feature_names = reducer.apply_reduction(data)
+    data, new_feature_names = dimension_reduce(
+        data, method="PCA", n_components=0.95, random_state=None
+    ) # 如要使用svd降维，请修改参数为 method="SVD", n_components=5, random_state=0
 
     features = [
         "Pclass",
