@@ -1972,6 +1972,23 @@ class DimensionalityReducer:
             else self.model.n_components
         )
 
+    def apply_reduction(self, data, feature_prefix="Ticket_Prefix_"):
+        features = [col for col in data.columns if col.startswith(feature_prefix)]
+        reduced_data = self.fit_transform(data[features])
+
+        n_components = self.get_n_components()
+        new_feature_names = [
+            f"{self.method}_{feature_prefix}_{i+1}" for i in range(n_components)
+        ]
+        data.drop(columns=features, inplace=True)
+
+        for i, feature_name in enumerate(new_feature_names):
+            data[feature_name] = reduced_data[:, i]
+
+        print(
+            f"{self.method} Reduced the features to {self.get_n_components()} components."
+        )
+        return data, new_feature_names
 ```
 
 为了在模型中更为方便的考虑新的降维特征，我们在 `main.py` 中，可以添加一个函数。该函数返回经过降维处理后的所有特征数据，并且同时返回降维后的新特征名。示例代码如下：
@@ -1996,20 +2013,16 @@ def dimension_preprocess_data(data, method="PCA", n_components=0.95, random_stat
     return data, new_feature_names
 ```
 
-按照如上处理，我们在 `main` 函数中，只需要在数据基本处理后，调用 `dimension_preprocess_data` 这个函数， 然后将新变量添加到特征变量中就好，示例代码如下：
+按照如上处理，我们在 `main` 函数中，只需要在数据基本处理后，实例化 `DimensionalityReducer`类， 然后将新变量添加到特征变量中就好，示例代码如下：
 
 ```python
 def main():
-    # 设置数据路径
     data_path = "./data/raw/train.csv"
 
-    # 加载和预处理数据
     data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-    # 降维处理
-    data, new_feature_names = dimension_preprocess_data(
-        data, method="PCA", n_components=0.95, random_state=None
-    )  # 选择pca对ticket_prefix特征经过one-hot编码后的特征进行降维处理
-    # 模型训练与评估
+    reducer = DimensionalityReducer(method="PCA") # 如要使用svd降维，请修改参数为 method="SVD", n_components=5, random_state=0
+    data, new_feature_names = reducer.apply_reduction(data)
+
     features = [
         "Pclass",
         "Sex",
@@ -2042,29 +2055,7 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 可以看出，当 `n_components=16` 时，累计方差达到约95%。这意味着保留前 16 个 SVD 组件就可以解释原始数据约 95% 的方差，这通常是一个选择组件数量的好标准，因为它确保了大部分信息被保留，同时也减少了特征数量，降低了模型的复杂度。但是，查看解释方差比，发现在 `n_components = 5` 左右时出现 elbow of the curve。哪到底 `n_components` 如何选择？有的时候（比如从降低计算成本的角度）根据解释方差比来选择可能更好。不过，这里我们可以都试试，检查下对模型评估指标的影响。
 
-由于在 `DimensionalityReducer` 类中，我们已经构建了 `SVD` 的相关计算过程，因此，我们只需要在 `main` 函数中调用 `dimension_preprocess_data` 函数，并设置好相关参数就行，示例代码如下：
-
-```python
-def main():
-    # 设置数据路径
-    data_path = "./data/raw/train.csv"
-
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-    data, new_feature_names = dimension_preprocess_data(
-        data, method="SVD", n_components=16, random_state=0
-    )
-    # 模型训练与评估
-    features = [
-        "Pclass",
-        "Sex",
-        "Age",
-        "Family_Size",
-    ] + new_feature_names
-    target = "Survived"
-
-    train_and_evaluate_model(data, features, target)
-```
+由于在 `DimensionalityReducer` 类中，我们已经构建了 `SVD` 的相关计算过程，因此，我们只需要在 `main` 函数中修改 `DimensionalityReducer` 的参数 `method`, `n_components`, `random_state`。
 
 当设置 `n_components=16` 时，模型的评估指标如下：
 
