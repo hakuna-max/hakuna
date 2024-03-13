@@ -1440,6 +1440,7 @@ Cross-validated Accuracy (5-fold): 0.827143
 对于采用 `Age` 列按头衔分类后的中位数填补的策略：
 
 ```plaintext
+Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
 Values  0.810056   0.794118  0.72973  0.760563  0.881982
 
@@ -1451,7 +1452,7 @@ Actual Positive                  20                  54
 Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这也表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.849365 vs. 0.827143）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用**按头衔分类后的中位数填补 `Age` 策略**，该种策略可能对未见数据具有更好的泛化能力。
+从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这也表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.849365 vs. 0.827143）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用<strong style="color:#c21d03">按头衔分类后的中位数填补 `Age` 策略</strong>，该种策略可能对未见数据具有更好的泛化能力。
 
 <hr>
 
@@ -1463,177 +1464,104 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 从左图可以发现，`Age` 数据似乎不是严格的正态分布，但也没有特别极端的偏斜。但是，右图中显示，存在少部分异常值。为此，我们需要一种更为稳健的标准化/归一化方法，以确保这些异常值不会对整体标准化结果产生过大影响。在此，我们计划采用 `RobustScaler` 来对 `Age` 进行处理。[`RobustScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html) 通过去除中位数并按四分位范围（IQR）缩放数据，可以降低异常值的影响力。
 
-现在，我们需要回到 `data_preprocessing.py` 文件，添加标准化/归一化的代码。显然，我们需要在已经填补上缺失值的数据上进行相关操作，那么，我们应该修改 `AdvancedDataProcessor` 类中的 `age_preprocess` 方法就可以了，如下：
+现在，我们需要回到 `data_preprocessing.py` 文件，添加标准化/归一化的代码。显然，我们需要在已经填补上缺失值的数据上进行相关操作。由于前期我们构建了 `AgeProcessor` 类，并且支持链式操作，因此，我们只需要在 `DataPreprocessor` 中涉及到年龄处理的部分添加上一个标准化操作（假设有一个方法名为：`robust_scaling()`）就行。示例代码如下：
 
 ```python
-from sklearn.preprocessing import LabelEncoder, RobustScaler
+# titanic/titanic/data_preprocessing.py
+from sklearn.preprocessing import RobustScaler
 
-
-# 其他代码保持不变
-
-class AdvancedDataProcessor(DataProcessor):
-
+class DataPreprocessor:
     # 其他代码保持不变
-    def age_preprocess(self):
-        assert self.data is not None, "Data is not set."
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group().robust_scaling()
 
-        self.fill_age_by_title_group()
+        # 其他代码保持不变
+        return self.data, new_columns
+```
 
-        # 标准化
+现在的问题是我们应该如何实现这个标准化操作。考虑到代码的模块化问题，且该方法可能也会被其他特征使用。因此，我们可以在基类中实现该方法，然后在各个需要使用的特征类中调用。具体实现过程如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class BaseProcessor:
+    def __init__(self, data):
+        self.data = data
+
+    def robust_scaling(self, column):
         scaler = RobustScaler()
-        self.data["Age"] = scaler.fit_transform(self.data["Age"])
+        self.data[column] = scaler.fit_transform(self.data[[column]])
+        return self
 
+
+class DataPreprocessor:
     # 其他代码保持不变
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group().robust_scaling("Age")
+
+        # 其他代码保持不变
+        return self.data, new_columns
 ```
 
-然后运行 `main.py`，评估结果如下：
+现在我们就可以直接运行 `main.py`，评估结果如下：
 
 ```plaintext
 Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score
-Values  0.810056   0.794118  0.72973  0.760563
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.881853
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  91                  14
-Actual Positive                  20                  54
+Actual Positive                  21                  53
 
-Cross-validated Accuracy (5-fold): 0.855079
+Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-:rofl: 又没有变化。我们还是得考虑**模型的鲁棒性**，**数据本身的特性**， **评估指标的选择**等方面对训练效果的影响。逻辑回归模型可能对 `Age` 特征的尺度不太敏感，尤其是当其他特征对预测结果有更强烈影响时（思考下如何确认？）。因此，即使进行了标准化，模型的表现也没有显著变化。从年龄的分布上看（查看该节前面的 Distribution of Age 图）， `Age` 数据在未标准化时好像已经相对集中（即使存在少数异常值），标准化可能不会对数据的相对关系产生重大影响，因此模型性能保持不变。此外，当下使用的评估指标（准确率、精确率、召回率、F1分数和混淆矩阵）可能没有捕捉到标准化带来的细微变化。我们可以再添加分类问题中常用的其他指标，比如AUC指标。关于前面提到的**特征的影响程度**问题，基于 EDA 分析，我们相信，`Age` 特征应该是对生产率有明显影响的，因此，从这个角度上，我们暂时不打算放弃`Age` 特征。
+与未标准化时的评估指标结果对比，我们发现，除了混淆矩阵和交叉验证的结果没有变化外，其他评估指标均有不同程度的降低。这好像不是我们所期望的。下面我们可以根据以上逻辑，试试其他的常用标准化方法是否对评估指标有所影响。例如，我们采用 `Min-Max` 的方式对 `Age` 特征进行标准化，其结果如下：
 
-现在，我们试着增加AUC指标。为此，我们只需要在 `model.py` 中的 `ModelEvaluator` 类添加相关代码就成，如下：
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.793296   0.768116  0.716216  0.741259  0.879408
 
-```python
-# 其他保持不变
-import matplotlib.pyplot as plt
-from sklearn.metrics import (
-    # 其他保持不变
-    roc_auc_score,
-    roc_curve,
-    auc,
-)
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  89                  16
+Actual Positive                  21                  53
 
-
-class ModelEvaluator:
-    def __init__(self, model, X_test, y_test):
-        self.model = model
-        self.X_test = X_test
-        self.y_test = y_test
-
-    def evaluate(self, cv=5):
-        y_pred = self.model.predict(self.X_test)
-        y_proba = self.model.predict_proba(self.X_test)[:, 1]  # 获取正类的概率
-
-        metrics = {
-            "Accuracy": accuracy_score(self.y_test, y_pred),
-            "Precision": precision_score(self.y_test, y_pred, average="binary"),
-            "Recall": recall_score(self.y_test, y_pred, average="binary"),
-            "F1 Score": f1_score(self.y_test, y_pred, average="binary"),
-            "ROC AUC": roc_auc_score(self.y_test, y_proba),  # 计算ROC AUC
-        }
-
-        # 打印评估指标
-        print("Evaluation Metrics:")
-        print(pd.DataFrame([metrics], index=["Values"]))
-
-        # 打印混淆矩阵
-        conf_matrix = confusion_matrix(self.y_test, y_pred)
-        print("\nConfusion Matrix:")
-        print(
-            pd.DataFrame(
-                conf_matrix,
-                columns=["Predicted Negative", "Predicted Positive"],
-                index=["Actual Negative", "Actual Positive"],
-            )
-        )
-
-        # 交叉验证
-        if cv > 1:
-            cross_val_accuracy = np.mean(
-                cross_val_score(
-                    self.model, self.X_test, self.y_test, cv=cv, scoring="accuracy"
-                )
-            )
-            print(f"\nCross-validated Accuracy ({cv}-fold): {cross_val_accuracy:.6f}")
-
-        # 绘制ROC曲线
-        fpr, tpr, _ = roc_curve(self.y_test, y_proba)
-        roc_auc = auc(fpr, tpr)
-
-        plt.plot(
-            fpr,
-            tpr,
-            color="darkorange",
-            lw=2,
-            label=f"ROC curve (area = {roc_auc:.6f})",
-        )
-        plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("Receiver Operating Characteristic") # 建议修改该title，使图片信息更直观
-        plt.legend(loc="lower right")
-        plt.savefig("fig/ROC.png", bbox_inches="tight")
-        # plt.show()
-
-        return metrics
-
-# 其他保持不变
+Cross-validated Accuracy (5-fold): 0.810317
 ```
-
-重新运行 `main.py`，不对 `Age` 进行标准化的结果如下：
+🤣，所有指标都降低了，看来 `Min-Max` 也不是一个好选择。选择 `Z-Score`，继续测试，结果如下：
 
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
-Values  0.810056   0.794118  0.72973  0.760563  0.882239
+Values  0.810056   0.794118  0.72973  0.760563  0.881853
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  91                  14
 Actual Positive                  20                  54
 
-Cross-validated Accuracy (5-fold): 0.855079
+Cross-validated Accuracy (5-fold): 0.849365
 ```
-![](/assets/images/ml/titanic_ROC_age_no_scaling.png)
 
-标准化后的结果如下：
+🤩，采用 `Z-Score` 后的结果居然和未标准化的一致。有些意外。逻辑回归模型似乎对 `Age` 特征的的标准化过程有较为敏感的返回。`Z-Score` 的评估结果优于其他两种方法的原因可能是由于 `Age` 特征在未标准化时已经相对集中，倾向于正态分布。而 `Z-Score` 恰恰适合于该类分布。虽然 `Z-Score` 并没有增强模型的能力，但似乎也没有什么坏处，考虑到后期我们可能会选择其他分类模型，<strong style="color:#c21d03">暂时保留 `Z-Score` 对 `Age` 特征的标准化</strong>。
 
-```plaintext
-Evaluation Metrics:
-        Accuracy  Precision   Recall  F1 Score   ROC AUC
-Values  0.810056   0.794118  0.72973  0.760563  0.882239
-
-Confusion Matrix:
-                 Predicted Negative  Predicted Positive
-Actual Negative                  91                  14
-Actual Positive                  20                  54
-
-Cross-validated Accuracy (5-fold): 0.855079
-```
-![](/assets/images/ml/titanic_ROC_age_scaling.png)
-
-好吧，从结果上看，我们只能得出，在逻辑回归模型下，是否对 `Age` 进行标准化，暂时并不能对其训练效果产生明显好的影响。但是，好像也没什么坏处。那么，考虑到后期，我们可能还会选择其他分类模型，暂时保留采用 `RobustScaler` 的方式对 `Age` 进行的标准化。
+<hr>
 
 ### 第三次尝试（考虑 `SibSp` 和 `Parch` 特征)
 
 基于 EDA 分析，不同家庭成员数量似乎对生存率存在影响，因此，这里我们计划进一步将该因素融入到上面的模型中。先来看看分别考虑`SibSp` 和 `Parch` 特征会不会对模型训练效果产生影响。由于这两特征没有缺失值，我们可以暂时直接加入到特征中。这样，我们只需要将其添加到 `main.py` 的 `main` 函数中的 `feature`，如下：
 
 ```python
+# titanic/titanci/main.py
 def main():
-    # 设置数据路径
-    data_path = "./data/raw/train.csv"
+    # 其他代码保持不变
 
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-
-    # 模型训练与评估
-    features = ["Pclass", "Sex", "Age", "SibSp"]  # 添加 "SibSp" 新特征
-    target = "Survived"
-    train_and_evaluate_model(data, features, target)
+    features = ["Pclass", "Age", "SibSp"] + new_feature_names # 添加 "SibSp"
+    
+    # 其他代码保持不变
 ```
 
 重新运行 `main.py`，可以得到如下结果：
@@ -1641,24 +1569,22 @@ def main():
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.821229   0.808824  0.743243  0.774648  0.893115
+Values  0.815642   0.797101  0.743243  0.769231  0.892342
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
-Actual Negative                  92                  13
+Actual Negative                  91                  14
 Actual Positive                  19                  55
 
-Cross-validated Accuracy (5-fold): 0.860635
+Cross-validated Accuracy (5-fold): 0.866190
 ```
 
-![](/assets/images/ml/titanic_ROC_sibsp.png)
-
-同样，加入 `Parch` 的结果如下：
+同样，单独加入 `Parch` 的结果如下：
 
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.798883   0.787879  0.702703  0.742857  0.883784
+Values  0.798883   0.787879  0.702703  0.742857  0.883655
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
@@ -1668,71 +1594,62 @@ Actual Positive                  22                  52
 Cross-validated Accuracy (5-fold): 0.855079
 ```
 
-![](/assets/images/ml/titanic_ROC_parch.png)
-
-同时考虑`SibSp` 和 `Parch` 特征的结果如下：
+同时考虑 `SibSp` 和 `Parch` 特征的结果如下：
 
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.826816   0.820896  0.743243  0.780142  0.894273
+Values  0.821229   0.808824  0.743243  0.774648  0.893372
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
-Actual Negative                  93                  12
+Actual Negative                  92                  13
 Actual Positive                  19                  55
 
-Cross-validated Accuracy (5-fold): 0.860635
+Cross-validated Accuracy (5-fold): 0.866190
 ```
-
-![](/assets/images/ml/titanic_ROC_sibsp_parch.png)
 
 分析这三组逻辑回归模型评估结果，我们可以发现：
 
-1. **准确率（Accuracy）**:
-   - 当考虑 `Pclass`, `Sex`, `Age`, `SibSp` 特征时，准确率为0.821229。
-   - 当考虑 `Pclass`, `Sex`, `Age`, `Parch` 特征时，准确率为0.798883，比只考虑 `SibSp` 时低。
-   - 当同时考虑 `Pclass`, `Sex`, `Age`, `SibSp`, `Parch` 特征时，准确率为0.826816，这是三个模型中最高的。
-2. **精确度（Precision）、召回率（Recall）和 F1 分数**:
-   - 精确度和召回率的最高值出现在同时考虑 `SibSp` 和 `Parch` 的情况下（精确度0.820896，召回率0.743243）。但是，召回率在同时考虑 `SibSp` 和 `Parch` 的情况下和只考虑 `SibSp` 特征的情况下是一样的，并且，对比只考虑 `Parch` 的情况下的召回率（三种情况下最低，且低于仅考虑 `Pclass`, `Sex`, `Age`时的评估结果，0.702703），这可能意味着在识别实际为正类的乘客方面，`Parch` 的添加对模型的影响有限。
-   - F1 分数是精确度和召回率的调和，最高（0.780142）也是在同时考虑 `SibSp` 和 `Parch` 时，说明模型在这种情况下平衡了精确度和召回率。
-3. **ROC AUC**:
-   - ROC AUC最高（0.894273）也是在同时考虑 `SibSp` 和 `Parch` 时，表明该模型具有较好的区分正负样本的能力。
-4. **混淆矩阵**:
-   - 在考虑 `SibSp` 和 `Parch` 时，模型预测正类和负类的能力最强，即预测为正类（生存）和负类（未生存）的数量均最多。
-5. **交叉验证准确率**:
-   - 交叉验证准确率最高（0.860635，且高于仅考虑 `Pclass`, `Sex`, `Age` 时的结果）也是在考虑所有特征时，这表明该模型具有较好的泛化能力。
+1. **考虑 `SibSp` 特征时**：引入 `SibSp` 后，模型的准确率、精确度、召回率、F1分数有所提高，ROC AUC 显著增加。这表明 `SibSp` 是一个有价值的特征，能提高模型的预测性能。
+2. **考虑 `Parch` 特征时**：引入 `Parch` 后，准确率略有下降，精确度和召回率也有所变化，但 ROC AUC 略有提高。这表明 `Parch` 对模型的影响不如 `SibSp` 明显，但仍提供了一定的信息增益。
+3. **同时考虑 `SibSp` 和 `Parch` 特征时**：同时考虑这两个特征时，模型在所有评估指标上都有所提升，尤其是准确率和ROC AUC，表明这两个特征的组合提供了比单独使用时更多的信息。
 
-总体来说，无论是在单次评估还是交叉验证中，在考虑 `SibSp` 和 `Parch` 时，模型的表现最佳。这可能表明 `SibSp` 和 `Parch` 特征与目标变量（生存与否）之间存在一定的相关性（印证了EDA结论），且这两个特征一起使用时能提供更多关于乘客生存概率的信息。因此，后面，计划考虑将 `SibSp` 和 `Parch` 作为特征构建模型，以提高预测的准确性和模型的泛化能力。但是，考虑到 `Parch` 的添加可能对模型的影响有限，我们计划进一步处理特征。
+综上所述，`SibSp` 和 `Parch` 特征对模型有正面影响，尤其是当它们同时使用时，能显著提高模型的预测性能。这可能是因为这些特征能够反映家庭结构对乘客生存率的影响，这是模型在没有这些信息时无法捕捉到的。因此，后面，<strong style="color:#c21d03"> 计划考虑将 `SibSp` 和 `Parch` 作为特征构建模型 </strong>，以提高预测的准确性和模型的泛化能力。但是，考虑到 `Parch` 的添加可能对模型的影响有限，我们计划进一步处理特征。
 
-由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加相应代码。由于这块数据处理代码似乎并不影响前面的模型，且比较简单，因此，我们计划将其放在我们的基础模块中，即 `DataProcessor`，其他保持不变就可以了，如下：
+<hr style="border-top: dashed; border-bottom: none">
+
+由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加一个新类 `FamilySizeProcessor`。然后在 `DataPreprocessor` 中调用，其他保持不变就可以了，示例代码如下：
 
 ```python
-class DataProcessor:
-    # 其他不变
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class FamilySizeProcessor(BaseProcessor):
+    def process_family_size(self):
+        self.data["FamilySize"] = self.data["SibSp"] + self.data["Parch"] + 1
+        return self
+
+# 其他代码保持不变
+
+class DataPreprocessor:
+    def __init__(self, data, columns):
+        self.data = data
+        self.columns = columns
 
     def preprocess(self):
-        self.age_preprocess()
-        self.sex_preprocess()
-        self.family_size_preprocess()
-
-        return self.data
-
-    # 其他不变
-
-    def family_size_preprocess():
-        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
-
-# 其他不变
+        # 其他代码保持不变
+        FamilySizeProcessor(self.data).process_family_size()
+        # 其他代码保持不变
+        return self.data, new_columns
 ```
 
-现在回到 `main.py` 中，将 `Family_Size` 纳入到 `features` 变量中， 如下：
-
+现在回到 `main.py` 中，将 `FamilySize` 纳入到 `features` 变量中， 如下：
 
 ```python
-# 其他不变
-    features = ["Pclass", "Sex", "Age", "Family_Size"]
-# 其他不变
+# titanic/titanic/main.py
+# 其他代码保持不变
+    features = ["Pclass", "Age", "FamilySize"] + new_feature_names
+# 其他代码保持不变
 ```
 
 重新运行 `main.py`，我们将得到如下结果：
@@ -1740,123 +1657,7 @@ class DataProcessor:
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.826816   0.820896  0.743243  0.780142  0.894015
-
-Confusion Matrix:
-                 Predicted Negative  Predicted Positive
-Actual Negative                  93                  12
-Actual Positive                  19                  55
-
-Cross-validated Accuracy (5-fold): 0.866190
-```
-
-![](/assets/images/ml/titanic_ROC_family_size.png)
-
-有趣了，对比只考虑 `Pclass`, `Sex`, `Age`, `SibSp`和`Parch` 特征时的结果，我们可以发现：
-
-1. **准确率（Accuracy）**：
-   - 在添加 `Family_Size` 后，准确率保持不变（0.826816），这表明添加 `Family_Size` 并没有改变模型在整体测试集上的预测准确性。
-2. **精确度（Precision）、召回率（Recall）和 F1 分数**：
-   - 这些指标同样保持不变，这意味着模型对正类和负类的预测能力并没有因为添加 `Family_Size` 而受到显著影响。
-3. **ROC AUC**：
-   - ROC AUC略有下降（从0.894273降至0.894015），但变化非常微小，可能在实际应用中并不显著。
-4. **混淆矩阵**：
-   - 混淆矩阵结果与之前相同，进一步确认了模型对特定类别的预测能力未受到新增特征的影响。
-5. **交叉验证准确率（Cross-validated Accuracy）**：
-   - 交叉验证的准确率从0.860635提高到0.866190，这肯定是一个积极的信号，表明在不同子集的数据上模型的泛化能力有所提升。
-
-因此，尽管在单次测试集评估中，添加 `Family_Size` 并没有显著改变模型的性能，但在交叉验证中观察到一定程度的准确率提升，这表明 `Family_Size` 可能增强了模型对不同数据分布的适应性和泛化能力。精确度、召回率和F1分数的稳定性表明，`Family_Size` 特征的加入并未对模型预测正负类产生不利影响，而且在一定程度上有助于提高模型的稳健性。所以大致可以得出，`Family_Size` 是一个有价值的特征，可以保留在模型中以期进一步提升模型的准确性和泛化能力。
-
-还记得前面 EDA 分析中发现，大多数乘客没有兄弟姐妹、配偶、父母或孩子同行吗？这个特征可能会导致数据倾斜，从而对模型产生不成比例的影响，为了缓解这种影响，我们可能需要进一步处理 `Family_Size` 这个新特征。下面提供了几种策略:
-
-1. **二值化处理**：将 `Family_Size` 转换为二元特征，例如，将独自一人的乘客标记为0，有家庭成员的乘客标记为1。这样的处理可以突出是否有家庭成员这一信息，而不是家庭成员的具体数量。
-2. **分段（分箱）**：将 `Family_Size` 进行分段（或称为分箱），例如，将家庭大小划分为"无家庭成员"、"小家庭"和"大家庭"等几个类别。这样可以在保留一定家庭大小信息的同时，减少异常值的影响。   
-3. **归一化或标准化**：虽然 `Family_Size` 已经是数值型特征，但如果其分布非常偏斜（的确），可以考虑对其进行归一化或标准化处理，使其在更合适的数值范围内，这可能对于基于梯度的模型特别有用。
-4. **考虑与其他特征的交互**：可以进一步探索 `Family_Size` 与其他特征的交互，例如，家庭大小可能与船舱等级（`Pclass`）或票价（`Fare`）有关联。这种交互特征可能会揭示更多的信息。
-5. **特征选择**：如果通过模型评估发现 `Family_Size` 对模型性能的贡献有限，可以考虑不将其包括在最终模型中，或者使用特征选择算法来确定其重要性。
-
-根据以上策略，我们先来完成前三种，针对不同策略，建立新变量，如对二值化，我们构建一个 `Is_Alone` 的新变量；对分段，我们构建一个 `Family_Size_Group`，对于标准化，我们构建一个 `Family_Size_Scaling`。为此，我们需要回到刚才在 `DataProcessor` 中新建立的 `family_size_preprocess` 方法，对其修改，示例代码如下：
-
-```python
-class DataProcessor:
-    # 其他代码保持不变
-
-    def family_size_preprocess(self):
-        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
-        self.data['Is_Alone'] = (self.data['FamilySize'] == 1).astype(int)
-        self.data['Family_Size_Group'] = pd.cut(self.data['FamilySize'], bins=[0, 1, 4, 11], labels=['Solo', 'SmallFamily', 'LargeFamily'])
-
-# 其他代码保持不变
-```
-
-同上，我们在标准化/归一化的过程中，需要确认选择何种标准化/归一化方法。这就需要我们查看下 `Family_Size` 特征的分布情况，如下：
-
-![](/assets/images/ml/titanic_distribution_family_size.png)
-
-显然，`RobustScaler` 可能是一个更为明智的选择。将标准化/归一化的代码添加到上面的函数中，如下：
-
-```python
-class DataProcessor:
-    # 其他代码保持不变
-
-    def family_size_preprocess(self):
-        self.data["Family_Size"] = self.data["SibSp"] + self.data["Parch"] + 1
-        self.data["Is_Alone"] = (self.data["Family_Size"] == 1).astype(
-            int
-        )  # 二值化处理
-        
-        scaler = RobustScaler()
-        self.data["Family_Size_Scaling"] = scaler.fit_transform(
-            self.data[["Family_Size"]]
-        )  # 标准化/归一化处理
-
-        self.data["Family_Size_Group"] = pd.cut(
-            self.data["Family_Size"],
-            bins=[0, 1, 4, 11],
-            labels=["Solo", "SmallFamily", "LargeFamily"],
-        )  # 分段（分箱）处理
-        self.data = pd.get_dummies(self.data, columns=["Family_Size_Group"])
-```
-
-注意，在上面的代码中，我们使用了 `One-Hot` 的方式将分段处理后的 `Family_Size_Group` 进行了转换。`get_dummies` 会创建新的列来表示 `Family_Size_Group` 中的每个类别，列名为 `Family_Size_Group_<类别名>`。如 `Family_Size_Group_Solo`, `Family_Size_Group_SmallFamily`, `Family_Size_Group_LargeFamily`。这些列可以直接用于训练逻辑回归模型。
-
-我们回到 `main.py` 中，其他代码可以保持不变，我们只需要将新构建的特征添加到 `features` 中就可以了，考虑不同处理策略下的结果如下：
-
-**二值化处理**后结果：
-
-```plaintext
-Evaluation Metrics:
-        Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.798883   0.787879  0.702703  0.742857  0.883269
-
-Confusion Matrix:
-                 Predicted Negative  Predicted Positive
-Actual Negative                  91                  14
-Actual Positive                  22                  52
-
-Cross-validated Accuracy (5-fold): 0.843810
-```
-
-**分段**处理后结果：
-
-```plaintext
-Evaluation Metrics:
-        Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.810056    0.80303  0.716216  0.757143  0.895302
-
-Confusion Matrix:
-                 Predicted Negative  Predicted Positive
-Actual Negative                  92                  13
-Actual Positive                  21                  53
-
-Cross-validated Accuracy (5-fold): 0.838254
-```
-
-**标准化/归一化**处理后结果：
-```plaintext
-Evaluation Metrics:
-        Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.815642   0.815385  0.716216   0.76259  0.891055
+Values  0.815642   0.815385  0.716216   0.76259  0.890541
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
@@ -1866,14 +1667,193 @@ Actual Positive                  21                  53
 Cross-validated Accuracy (5-fold): 0.855079
 ```
 
+从上述结果中，我们可以看到，当考虑 `SibSp`和`Parch` 特征时，模型的准确率、精确度、召回率、F1分数和ROC AUC值分别为0.821229、0.808824、0.743243、0.774648和0.893372。在这种情况下，模型表现较好，特别是在ROC AUC值上，显示出良好的分类能力。然而，当将 `SibSp` 和 `Parch` 合并为 `FamilySize` 特征时，各项指标有所下降，准确率为0.815642，精确度为0.815385，召回率为0.716216，F1分数为0.76259，ROC AUC值为0.890541。虽然精确度略有提升，但其他指标，尤其是召回率和F1分数，都有所下降。这种变化表明，尽管合并 `SibSp` 和 `Parch` 为单一的 `FamilySize` 特征简化了模型，并可能有助于减少过拟合的风险，但它也可能损失了一些重要的信息，从而影响了模型的整体性能。特别是，召回率的下降表明，在合并特征后，模型识别出的实际正类数量减少了。此外，交叉验证的准确率从0.866190下降到0.855079，也显示了模型在合并特征后在不同数据子集上的泛化能力略有下降。总的来说，这种变化强调了特征工程决策对模型性能的重要影响，以及在决定合并特征之前需要仔细考虑的权衡。在实际应用中，最佳的特征工程策略取决于特定问题的上下文以及对不同类型错误的容忍程度。
+
+还记得前面 EDA 分析中发现，大多数乘客没有兄弟姐妹、配偶、父母或孩子同行吗？这个特征可能会导致数据倾斜，从而对模型产生不成比例的影响，为了缓解这种影响，我们可能需要进一步处理 `FamilySize` 这个新特征。下面提供了几种策略:
+
+1. **二值化处理**：将 `FamilySize` 转换为二元特征，例如，将独自一人的乘客标记为0，有家庭成员的乘客标记为1。这样的处理可以突出是否有家庭成员这一信息，而不是家庭成员的具体数量。
+2. **分段（分箱）**：将 `FamilySize` 进行分段（或称为分箱），例如，将家庭大小划分为"无家庭成员"、"小家庭"和"大家庭"等几个类别。这样可以在保留一定家庭大小信息的同时，减少异常值的影响。   
+3. **归一化或标准化**：虽然 `FamilySize` 已经是数值型特征，但如果其分布非常偏斜（的确），可以考虑对其进行归一化或标准化处理，使其在更合适的数值范围内，这可能对于基于梯度的模型特别有用。
+4. **考虑与其他特征的交互**：可以进一步探索 `FamilySize` 与其他特征的交互，例如，家庭大小可能与船舱等级（`Pclass`）或票价（`Fare`）有关联。这种交互特征可能会揭示更多的信息。
+5. **特征选择**：如果通过模型评估发现 `FamilySize` 对模型性能的贡献有限，可以考虑不将其包括在最终模型中，或者使用特征选择算法来确定其重要性。
+
+根据以上策略，我们先来完成前两种，针对不同策略，建立新变量，如对二值化，我们构建一个 `IsAlone` 的新变量；对分段，我们构建一个 `FamilySizeGroup`，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class FamilySizeProcessor(BaseProcessor):
+    def process_family_size(self):
+        self.data["FamilySize"] = self.data["SibSp"] + self.data["Parch"] + 1
+        self.data["IsAlone"] = (self.data["FamilySize"] == 1).astype(int)
+        return self
+
+# 其他代码保持不变
+```
+
+在 `main` 函数中，用 `IsAlone` 的新变量代替之前的 `FamilySize`， 重新运行 `main.py` 得到二值化后的模型评估结果，如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.883012
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+对于分段，我们可以继续在 `FamilySizeProcessor` 中添加相应的方法，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class FamilySizeProcessor(BaseProcessor):
+   # 其他代码保持不变
+    def categorize_family_size(self):
+        self.data["FamilySizeGroup"] = pd.cut(
+            self.data["FamilySize"],
+            bins=[0, 1, 4, 11],
+            labels=["Solo", "SmallFamily", "LargeFamily"],
+        )
+        return self
+
+# 其他代码保持不变
+
+class DataPreprocessor:
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+        FamilySizeProcessor(self.data).process_family_size().categorize_family_size()
+        # 其他代码保持不变
+        return self.data, new_columns
+```
+
+注意，以上处理中， `categorize_family_size` 方法只是将 `FamilySize` 分成了 `Solo`, `SmallFamily`, `LargeFamily`。这样的类别数据需要经过处理后才能输入到逻辑回归模型中。还记得我们单独构建了一个 `CategoricalEncoder` 类吗，后续在处理时，我们可以采用处理 `Sex` 特征时的策略。示例代码如下：
+
+```python
+# titanic/titanic/main.py
+def main():
+    # 其他代码保持不变
+    data, new_feature_names = load_and_preprocess_data(
+        data_path, columns=["Sex", "FamilySizeGroup"]
+    )
+    features = ["Pclass", "Age"] + new_feature_names
+   # 其他代码保持不变
+```
+
+重新运行 `main.py` 得到分段后的模型评估结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.810056    0.80303  0.716216  0.757143  0.894788
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  92                  13
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+对于`FamilySize` 特征的标准化/归一化，由于前期在数据处理的基类中，我们已经构建了相应方法，在这，我们仍然可以复用前面的方法。如果在考虑 `FamilySizeGroup` 的代码基础上修改，那么我们需要只需要稍微修改 `DataPreprocessor` 类以及 `main` 函数中的相关代码就行。在进行标准化/归一化之前，我们先来分析下 `FamilySize` 特征的分布情况，如下：
+
+![](/assets/images/ml/titanic_distribution_family_size.png)
+
+显然，`RobustScaler` 似乎是一个更为明智的选择。那么只需要在 `DataPreprocessor` 类中调用基类的 `scaling_robust` 对 `FamilySize` 进行标准化就行，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+        FamilySizeProcessor(self.data).process_family_size().scaling_robust("FamilySize")
+        # 其他代码保持不变
+        return self.data, new_columns
+```
+
+同理，我们需要将标准化后的指标纳入到特征变量中，示例代码如下：
+
+```python
+# titanic/titanic/main.py
+def main():
+    # 其他代码保持不变
+    data, new_feature_names = load_and_preprocess_data(
+        data_path, columns=["Sex"]
+    )
+
+    features = ["Pclass", "Age", "FamilySize"] + new_feature_names
+    # 其他代码保持不变"
+```
+
+运行 `main.py`，得到 `FamilySize` 标准化后的评估结果，如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.815385  0.716216   0.76259  0.890541
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+当然，我们也可以试着用其他标准化方法，查看评估结果的变化：
+
+采用 Min-Max:
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.889511
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+采用 Z-Score：
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.815385  0.716216   0.76259  0.890541
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+对新构建的`FamilySize`特征，我们采用了多种不同的处理方法，并分析了这些方法对逻辑回归模型评估指标的影响，发现：
+
+1. **未进一步处理**：未对 `FamilySize` 进行任何额外处理时，模型表现中等，准确率、精确度、召回率、F1分数和ROC AUC分别为0.815642、0.815385、0.716216、0.76259和0.890541。
+2. **是否独自分类处理**：将 `FamilySize` 简单分为独自一人和非独自两类时，各项指标略有下降，特别是准确率和F1分数，这表明过于简化的分类可能损失了部分信息。
+3. **多分类处理**：对 `FamilySize` 进行更细致的分类处理后，模型的准确率、F1分数和ROC AUC略有改善，表明适度的分类可以提供额外的信息，有助于改善模型的性能。
+4. **RobustScaler标准化**：使用 `RobustScaler` 处理后，模型的表现与未处理时相当，说明这种标准化方法保持了原始数据的分布特征，对模型性能影响不大。
+5. **Min-Max标准化**：使用 `Min-Max` 标准化后，模型的准确率和F1分数有所下降，但ROC AUC值与其他方法相近，说明 `Min-Max` 可能导致某些信息的压缩。
+6. **Z-Score标准化**：采用 `Z-Score` 处理后，模型的各项指标与 `RobustScaler` 处理相当，说明 `Z-Score` 标准化在这种情况下维持了数据的分布特性。
+
+综合来看，`FamilySize` 特征的不同处理方法对模型性能有一定影响。其中，`RobustScaler` 和 `Z-Score` 标准化方法在保持数据分布特性的同时，维持了较高的模型评估指标。而简单的是否独自分类处理则可能由于信息损失导致性能下降。这些结果强调了特征处理方法选择的重要性，以及它们对模型性能的潜在影响。在实际应用中，选择适当的特征处理策略对于优化模型表现至关重要。因此，如果需要对 `FamilySize` 特征进一步处理的话，后续计划与处理 `Age` 类似，<strong style="color:#c21d03"> 保留通过`RobustScaler` 或 `Z-Score` 标准化方法对 `FamilySize` 特征的处理</strong>
+
 结合原始处理（即直接使用 `Family_Size` 特征，而不处理），对比分析这些模型评估结果，我们可以观察到对 `Family_Size` 特征采用不同处理策略后模型性能的变化：
 
-1. **不处理`Family_Size`**：准确率最高，达到0.826816，且其他评估指标如精确度、召回率、F1分数和ROC AUC也相对较高。混淆矩阵显示预测正确的数量最多，且交叉验证准确率（0.866190）同样是最高的。
-2. **二值化处理后**：准确率和其他指标普遍下降，准确率降到0.798883，交叉验证准确率下降到0.843810，这表明二值化处理可能损失了部分重要信息，导致模型性能下降。
-3. **分段处理后**：模型的准确率提高到0.810056，但相比不处理 `Family_Size` 的结果仍有所下降。尽管ROC AUC稍有提高，但交叉验证准确率降低到0.838254，表明模型的泛化能力减弱。
-4. **标准化/归一化处理后**：模型准确率为0.815642，虽然高于二值化和分段处理，但低于不进行任何处理的情况。交叉验证准确率也有所下降，表明在这种情况下标准化/归一化处理并没有带来预期的性能提升。
-
 整体来说，在这种情况下，**不对 `Family_Size` 进行任何处理似乎是最佳选择**，因为它为模型提供了最高的准确率和最好的泛化能力。二值化和分段处理虽然简化了特征，但同时也可能导致信息损失，影响模型性能。标准化/归一化处理在这里并没有显著提高模型性能，可能是因为 `Family_Size` 的原始分布已经足够适合模型使用。
+
+<hr/>
 
 ### 第四次尝试（考虑 `Ticket` 特征）
 
