@@ -2123,18 +2123,86 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 虽然我们在后续的模型训练中暂时不纳入 `Ticket` 特征。但是，以上是采用相关降维技术对 One-Hot 编码后的特征进行处理。从上面的分析过程可以发现，我们在处理 `Ticket` 特征时，其实并没有应用 EDA 分析得出的一些有用信息。比如说，在单变量分析中，我们发现，大多数票都没有前缀，**PC**, **CA**, **A**, **STONO** 等是接下来最常见的票号前缀。其他前缀如 **SC**, **SWPP**, **FCC** 等出现的次数相对较少。结合生存率来看，**SC** 和 **SWPP** 前缀的票号有最高的生存率（1.00），没有明显前缀的票，生存率仅为 0.38。同时也发现，生存率较高的对应的票数较少，而普通的票最多的，生存率仅约1/3。这给我们一个启示，能否在对 `Ticket` 的前缀 One-Hot 编码前进行处理。以减少 One-Hot 编码后的特征，从而达到降维的要求。同时，这也可以帮助我们更为细致的控制如何处理这些前缀，特别是某些罕见的前缀。
 
-很明显，如果仅考虑 `Ticket_Prefix` 时，我们可以将其简单的分成常见和罕见两类，从而大大减少了特征编码后的变量。这里的难点是如何定义常见和罕见？可能有同学会想到，我们可以设定一个阈值，比如选择覆盖约80%-90%的数据的前缀为常见前缀，其余的为罕见。当然是可以的。如果想更为细致的分类，我们还可以选择多个阈值区间？
+很明显，如果仅考虑 `TicketPrefix` 时，我们可以将其简单的分成常见和罕见两类，从而大大减少了特征编码后的变量。这里的难点是如何定义常见和罕见？可能有同学会想到，我们可以设定一个阈值，比如选择覆盖约80%-90%的数据的前缀为常见前缀，其余的为罕见。当然是可以的。如果想更为细致的分类，我们还可以选择多个阈值区间？
 
-除此之外，我们还可以结合生存率来对 `Ticket_Prefix` 分类。比如按照生存率的 \([0, 0.2)\), \([0.2, 0.4)\)，等等来对前缀进行分类。但是这里有个问题，在训练集上进行该种分类确实可行，但在预测集上如何应用相同的分组？因为预测集上我们没有生存率这个指标。这里也有大致的解决方案，比如**不直接根据生存率来分组，而是找到与生存率相关的其他特征**，比如船票价格、船舱等级等，这些在预测集上也是可用的。如果确实要使用生存率来辅助分组，可以考虑以下方法：
+除此之外，我们还可以结合生存率来对 `TicketPrefix` 分类。比如按照生存率的 \([0, 0.2)\), \([0.2, 0.4)\)，等等来对前缀进行分类。但是这里有个问题，在训练集上进行该种分类确实可行，但在预测集上如何应用相同的分组？因为预测集上我们没有生存率这个指标。这里也有大致的解决方案，比如**不直接根据生存率来分组，而是找到与生存率相关的其他特征**，比如船票价格、船舱等级等，这些在预测集上也是可用的。如果确实要使用生存率来辅助分组，可以考虑以下方法：
 
-1. **分组依据仅用于降维**：在训练阶段，使用生存率信息帮助确定 `Ticket_Prefix` 的分组，然后进行 One-Hot 编码和降维。在预测阶段，只需根据训练阶段确定的前缀分组对新数据进行相同的 One-Hot 编码和降维处理。这种方法的前提是能够确保新数据中的 `Ticket_Prefix` 在训练集中已有相应的处理逻辑。
-2. **创建预测时也能获取的特征**：如果依据生存率对 `Ticket_Prefix` 进行分组，可以尝试创建一个新特征，比如`Ticket_Prefix_Group`，这个特征在预测时也能够根据 `Ticket_Prefix` 直接获得，即使没有生存率信息。例如，如果在训练阶段发现某些前缀与高生存率相关，就可以将这些前缀归为一个组，预测时只需检查 `Ticket_Prefix` 是否属于这个组即可。
+1. **分组依据仅用于降维**：在训练阶段，使用生存率信息帮助确定 `TicketPrefix` 的分组，然后进行 One-Hot 编码和降维。在预测阶段，只需根据训练阶段确定的前缀分组对新数据进行相同的 One-Hot 编码和降维处理。这种方法的前提是能够确保新数据中的 `TicketPrefix` 在训练集中已有相应的处理逻辑。
+2. **创建预测时也能获取的特征**：如果依据生存率对 `TicketPrefix` 进行分组，可以尝试创建一个新特征，比如`Ticket_Prefix_Group`，这个特征在预测时也能够根据 `TicketPrefix` 直接获得，即使没有生存率信息。例如，如果在训练阶段发现某些前缀与高生存率相关，就可以将这些前缀归为一个组，预测时只需检查 `TicketPrefix` 是否属于这个组即可。
 
-下面我们试着从最为简单（即，按照 `Ticket_Prefix` 的频率和其累计频率）的分类开始，看看以上想法是否对逻辑回归模型训练效果有所影响。
+下面我们试着从最简单（即，按照 `TicketPrefix` 的频率和其累计频率）的分类开始，看看以上想法是否对逻辑回归模型训练效果有所影响。
 
 `Ticket_Prefix` 的频率和其累计频率如下图所示：
 
 ![](/assets/images/ml/titanic_ticket_prefix_frequency_cumulative.png)
 
+从上图可以看出来，`None` 这一类是最多的，大约占了 75%，其次是 `PC`， `CA`， `A`， `STONO`，与 `None` 一起占了大约 90%。因此，我们想将 `None` 单独成一类，而 `PC`， `CA`， `A`， `STONO`一起作为 `Common` 类，其余的为 `Rare`。但是，考虑到我们需要确保模型处理新数据时更加鲁棒，我们可以按照累计频次来分类。与前面的硬编码不同，这里我们需要确定分类的阈值，比如，我们可以设置该阈值为 85%。为了实现该分类，我们可以在 `TicketProcessor` 类中增加一个分类方法 `categorize_ticket_prefix`，示例代码如下：
 
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class TicketProcessor(BaseProcessor):
+    # 其他代码保持不变
 
+    def categorize_ticket_prefix(self, threshold):
+        prefix_freq = self.data["TicketPrefix"].value_counts(normalize=True)
+        prefix_cumsum = prefix_freq.cumsum()
+        common_prefixes = prefix_cumsum[prefix_cumsum <= threshold].index.tolist()
+
+        # 分类票号前缀，将 `None` 单独分类，其余按照是否在 common_prefix 分类
+        self.data["TicketPrefixCategorized"] = self.data["TicketPrefix"].apply(
+            lambda x: (
+                "None"
+                if x == "None"
+                else ("Common" if x in common_prefixes else "Rare")
+            )
+        )
+        return self
+```
+
+按照如上构建，我们只需要再修改 `DataPreprocessor` 类，示例代码如下：
+
+```python
+class DataPreprocessor:
+    def __init__(self, data):
+        self.data = data
+
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group().scaling_z_score("Age")
+        TicketProcessor(self.data).process_ticket().categorize_ticket_prefix()
+
+        encoder = CategoricalEncoder(self.data)
+        _, new_feature_names_sex = encoder.one_hot_encode(["Sex"])
+        _, new_feature_names_ticket_cate = encoder.one_hot_encode(
+            ["TicketPrefixCategorized"]
+        )
+
+        new_feature_names = new_feature_names_sex + new_feature_names_ticket_cate
+
+        return self.data, new_feature_names
+```
+
+重新运行 `main.py`，得到如下结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.826816   0.820896  0.743243  0.780142  0.888031
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+与前面的结果进行对比，发现：
+
+1. **与未进行特别处理相比**：按累计频率分类后，仅在 ROC AUC 值方面，分类处理后略有降低，可能是因为减少了特征的细节程度，影响了模型区分正负样本的能力。模型的其他指标均一致。
+2. **与 PCA 降维相比**：按累计频率分类后的结果在ROC AUC值和交叉验证上略高，且其他指标保持一致。这表明累计频率分类明显优于 PCA 处理方式。
+3. **与 SV D降维相比**：SVD降维后的模型在准确率，精确率，以及 F1 得分上略高于分类处理，但优势不明显，在ROC AUC上略低。这可能说明SVD在减少特征维度时保留了更多对模型预测有用的信息，但同时也可能引入了一些噪声或过拟合的风险。
+
+因此，<strong style="color:#c21d03">如果要考虑对 `TicketPrefix` 进行降维处理，相对于 PCA 和 SVD 来说，按照频率的分类可能是一个较好的选择。</strong>
+
+<hr style="border-top: dashed; border-bottom: none">
