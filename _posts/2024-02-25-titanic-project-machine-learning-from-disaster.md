@@ -9,6 +9,7 @@ tags: [machine learning, classification]
 top:
 sidebar: []
 ---
+
 - [Titanic 项目介绍](#titanic-项目介绍)
 - [项目的前期准备](#项目的前期准备)
 - [项目步骤](#项目步骤)
@@ -1867,7 +1868,7 @@ Cross-validated Accuracy (5-fold): 0.855079
 5. **Min-Max标准化**：使用 `Min-Max` 标准化后，模型的准确率和F1分数有所下降，但ROC AUC值与其他方法相近，说明 `Min-Max` 可能导致某些信息的压缩。
 6. **Z-Score标准化**：采用 `Z-Score` 处理后，模型的各项指标与 `RobustScaler` 处理相当，说明 `Z-Score` 标准化在这种情况下维持了数据的分布特性。
 
-综合来看，`FamilySize` 特征的不同处理方法对模型性能有一定影响。其中，`RobustScaler` 和 `Z-Score` 标准化方法在保持数据分布特性的同时，维持了较高的模型评估指标。而简单的是否独自分类处理则可能由于信息损失导致性能下降。这些结果强调了特征处理方法选择的重要性，以及它们对模型性能的潜在影响。在实际应用中，选择适当的特征处理策略对于优化模型表现至关重要。因此，如果需要对 `FamilySize` 特征进一步处理的话，后续计划与处理 `Age` 类似，<strong style="color:#c21d03"> 保留通过`RobustScaler` 或 `Z-Score` 标准化方法对 `FamilySize` 特征的处理</strong>。但是，<strong style="color:#c21d03">当我们继续对比同时考虑 `SibSp` 和 `Parch` 特征时，各个评估指标均有所下降。从这个角度，可能不用构建新特征，对逻辑回归分类模型效果最好。</strong>
+综合来看，`FamilySize` 特征的不同处理方法对模型性能有一定影响。其中，`RobustScaler` 和 `Z-Score` 标准化方法在保持数据分布特性的同时，维持了较高的模型评估指标。而简单的是否独自分类处理则可能由于信息损失导致性能下降。这些结果强调了特征处理方法选择的重要性，以及它们对模型性能的潜在影响。在实际应用中，选择适当的特征处理策略对于优化模型表现至关重要。因此，如果需要对 `FamilySize` 特征进一步处理的话，后续计划与处理 `Age` 类似，<strong style="color:#c21d03"> 保留通过`RobustScaler` 或 `Z-Score` 标准化方法对 `FamilySize` 特征的处理</strong>。但是，<strong style="color:#c21d03">当我们继续对比同时考虑 `SibSp` 和 `Parch` 特征时，各个评估指标均有所下降。从这个角度，可能不用构建新特征，对逻辑回归分类模型效果最好。因此，下面的模型将基于同时考虑 `SibSp` 和 `Parch` 特征，而不考虑由此特征衍生出来的新特征</strong>
 
 <hr/>
 
@@ -1875,81 +1876,79 @@ Cross-validated Accuracy (5-fold): 0.855079
 
 从 EDA 分析可以看出，票号前缀与乘客的生存率之间存在一定的关联。票号前缀大致可以分为高频前缀（如 None, PC, CA）和低频前缀。高频前缀（如 None, PC, CA）可能代表了更常见的票务类别，而与之关联的生存率可能更具有一般性的指示意义；低频前缀的生存率可能受到随机波动的影响较大，这给我们如何处理票号前缀提出了一定的挑战。
 
-我们计划先提取出票号前缀，并采用One-Hot的方式对其进行编码（主要是考虑到，票号前缀并没有顺序性）。显然，我们需要在 `data_preprocessing.py` 中，合适的位置添加上相关的处理。同 `Family_Size` 的处理，可以直接在 `DataProcessor` 类中添加相关方法，如下：
+我们计划先提取出票号前缀，并采用 One-Hot 的方式对其进行编码（主要是考虑到，票号前缀并没有顺序性）。显然，我们需要在 `data_preprocessing.py` 中，添加一个专门处理票号的类 `TicketProcessor`。示例代码如下：
 
 ```python
-class DataProcessor:
-    # 其他代码保持不变
-
-    def preprocess(self):
-        # 其他代码保持不变
-        self.ticket_preprocess()
-        return self.data
-
-    def ticket_preprocess(self):
-        self.data["Ticket_Prefix"] = self.data["Ticket"].apply(
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class TicketProcessor(BaseProcessor):
+    def process_ticket(self):
+        self.data["TicketPrefix"] = self.data["Ticket"].apply(
             lambda x: (
                 "".join(filter(str.isalpha, x.split(" ")[0]))
                 if not x.isdigit()
                 else "None"
             )
         )
-        self.data = pd.get_dummies(self.data, columns=["Ticket_Prefix"])
+        return self
+# 其他代码保持不变
 ```
 
-由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。我们先将新生成了所有特征都纳入到前面的模型中，并评估其对模型的影响。为了考虑所有的新变量，我们对 `main.py` 进行适当修改，如下：
+以上处理逻辑是，如果有前缀，则提取其前缀，如果没有，则将其前缀命名为 `None`。对提取出的前缀进行 One-Hot 编码也很简单，可以借助于前期我们已经构建的 `CategoricalEncoder`。我们先在 `DataPreprocessor` 添加对票号的处理逻辑，然后在 `main` 函数中添加相关特征， 示例代码如下：
 
 ```python
-def main():
-    # 设置数据路径
-    data_path = "./data/raw/train.csv"
-
-    # 加载和预处理数据
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-
-    # 模型训练与评估
-    features = [
-        "Pclass",
-        "Sex",
-        "Age",
-        "Family_Size",
-    ]
-    ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]  # 添加所有新的ticket_prefix_
-
-    all_features = features + ticket_prefix_features
-    target = "Survived"
-
-    train_and_evaluate_model(data, all_features, target)
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group().scaling_z_score("Age")
+        TicketProcessor(self.data).process_ticket() # 添加对Ticket前缀的处理
+        # 其他代码保持不变
+        return self.data, new_columns
 ```
 
-可能需要解释的是，由于 One-Hot 对 `Ticket_Prefix` 编码产生了较多的新变量，但考虑到其对新变量的命名方式有一定的共同特征（`Ticket_Prefix_<类别名>`），因此，在此，我们先用列表生成式，提取出所有的新变量，然后与之前的变量进行组合，形成新的所有的变量（`all_feature`）。
+```python
+# titanic/titanic/main.py
+def main():
+    # 其他代码保持不变
+    data, new_feature_names = load_and_preprocess_data(
+        data_path, columns=["Sex", "TicketPrefix"]
+    )
 
-重新运行 `main.py`， 评估结果如下：
+    features = ["Pclass", "Age", "SibSp", "Parch"] + new_feature_names
+    # 其他代码保持不变
+```
+
+重新运行 `main.py`，评估结果如下：
 
 ```plaintext
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.821229   0.828125  0.716216  0.768116  0.884427
+Values  0.826816   0.820896  0.743243  0.780142  0.888803
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
-Actual Negative                  94                  11
-Actual Positive                  21                  53
+Actual Negative                  93                  12
+Actual Positive                  19                  55
 
 Cross-validated Accuracy (5-fold): 0.843810
 ```
 
-与仅考虑 `Pclass`，`Sex`，`Age`，`Family_Size` 四个特征的情况对比，我们可以发现：
-1. **准确率（Accuracy）**：考虑 `ticket_prefix_` 特征后，模型准确率略微下降，从0.826816降到了0.821229。这表明添加这些新特征可能引入了一些噪声，对模型的整体预测准确性产生了轻微的负面影响。
-2. **精确度（Precision）和召回率（Recall）**：精确度有所提高（从0.820896增加到0.828125），这表明在考虑 `ticket_prefix_` 特征后，模型在预测乘客生存状态为正类时更加准确。但召回率下降（从0.743243降低到0.716216），意味着模型可能错过了更多实际为正类的预测。
-3. **F1分数（F1 Score）**：F1分数略有下降，从0.780142降到了0.768116，显示在精确度的提高和召回率的下降之间，模型失去了一些平衡。
-4. **ROC AUC**：ROC AUC也有所下降（从0.894015降至0.884427），表明考虑 `ticket_prefix_` 特征后，模型区分正负类的能力有所减弱。
-5. **混淆矩阵（Confusion Matrix）**和**交叉验证准确率**：考虑 `ticket_prefix_` 特征后，混淆矩阵显示虽然模型正确预测正类的数量减少了，但是正类的误判数量也有所减少。交叉验证准确率下降（从0.866190降至0.843810），进一步证实了在包含 `ticket_prefix_` 特征后模型泛化能力的轻微下降。
+注意：由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。以上结果时将新生成了所有特征都纳入到前面的模型中的各个评估指标的结果：
 
-所以说，考虑 `ticket_prefix_` 特征可能为模型提供了一些额外信息，但同时也可能引入了一些不太相关的噪声，导致模型在某些方面的性能略有下降。此外，添加大量新特征后，可能也会导致模型变得更复杂，增加了过拟合的风险，同时可能会掩盖一些更重要特征的效用。这也意味着，我们需要进一步处理 `Ticket_Prefix`。
+对比不考虑票号前缀，可以注意到以下几点差异：
+1. **准确率(Accuracy)**: 考虑票号前缀的模型准确率略高于不考虑票号前缀的模型（0.826816 vs 0.821229）。这表明加入票号前缀特征后，模型在整体上能更准确地预测乘客的生存状态。
+2. **精确度(Precision)**: 考虑票号前缀的模型比不考虑票号前缀的模型精确度稍高（0.820896 vs 0.808824）。这意味着在预测乘客生存时，加入票号前缀可以稍微减少将未生存的乘客错误分类为生存的情况。
+3. **召回率(Recall)**: 两组结果相当（0.743243），表明在实际生存的乘客中，两个模型都有相同比例的乘客被正确预测为生存。
+4. **F1分数(F1 Score)**: 考虑票号前缀的模型F1分数略高（0.780142 vs 0.774648），表示考虑票号前缀的模型在精确度和召回率之间取得了较好的平衡。
+5. **ROC AUC**: 不考虑票号前缀的模型ROC AUC略高（0.893372 vs 0.888803），这表明在区分乘客生存与否的能力上，不考虑票号前缀的模型整体表现略优。
+6. **交叉验证准确率(Cross-validated Accuracy)**: 不考虑票号前缀的模型在交叉验证中表现更好（0.866190 vs 0.843810），说明其泛化能力可能更强。
 
+总体来看，加入票号前缀特征后，模型在准确率、精确度、F1分数上有所提高，但在ROC AUC和交叉验证准确率上有轻微下降。这可能意味着票号前缀提供了有用的信息，但也可能引入了一些噪声，影响了模型的泛化能力。在实际应用中，是否加入这类特征需要根据具体情况和模型表现来决定。
 
-下面，我们计划首先从降维的角度思考如何处理 `Ticket_Prefix`。降维可以减少特征空间的维度，同时尽量保留原始数据中的重要信息。下面列出了部分常用的降维方法：
+<hr style="border-top: dashed; border-bottom: none">
+
+由于考虑票号前缀时引入了较多的新特征。下面，我们计划首先从降维的角度思考如何处理 `Ticket_Prefix`。降维可以减少特征空间的维度，同时尽量保留原始数据中的重要信息。下面列出了部分常用的降维方法：
 
 1. **主成分分析（PCA）**: PCA 是一种非常流行的降维技术，可以将特征转换到一个新的坐标系统中，并按照方差大小排序，保留最重要的几个主成分。对于One-Hot编码后的特征，PCA可以帮助识别哪些变量捕获了大部分信息。
 2. **截断奇异值分解（Truncated SVD）**: 与PCA类似，截断SVD适用于稀疏数据（例如，One-Hot编码后的数据）。它可以减少特征的维度，同时保留数据的关键信息。
@@ -1960,19 +1959,29 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 降维是一个需要实验和评估的过程。我们可能需要尝试不同的降维方法和参数设置，然后根据模型的性能和复杂度来选择最适合咱们数据的方法。
 
-考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot 编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划在 `data_preprocessing.py` 中针对数据降维构建一个新的类。之所以这么处理，主要是从模块化的角度考虑。并不是所有的特征都需要进行降维处理。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。新的降维类示例代码如下：
+考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot 编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划在 `data_preprocessing.py` 中针对数据降维构建一个新的类。之所以这么处理，主要是从模块化的角度考虑。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。新的降维类示例代码如下：
 
 ```python
+# titanic/titanic/data_preprocessing.py
 # 其他代码保持不变
 from sklearn.decomposition import PCA, TruncatedSVD
 
 
 # 其他代码保持不变
 class DimensionalityReducer:
-    def __init__(self, method="PCA", n_components=0.95, random_state=None):
+    def __init__(
+        self,
+        data,
+        method="PCA",
+        n_components=0.95,
+        random_state=None,
+        feature_prefix="TicketPrefix_",
+    ):
+        self.data = data
         self.method = method
         self.n_components = n_components
         self.random_state = random_state
+        self.feature_prefix = feature_prefix
         self.model = None
         if self.method == "PCA":
             self.model = PCA(n_components=self.n_components)
@@ -1981,102 +1990,102 @@ class DimensionalityReducer:
                 n_components=self.n_components, random_state=self.random_state
             )
 
-    def fit_transform(self, X):
+    def apply_reduction(self):
         if not self.model:
             raise ValueError("Invalid dimensionality reduction method")
-        return self.model.fit_transform(X)
 
-    def get_n_components(self):
-        return (
+        features = [
+            col for col in self.data.columns if col.startswith(self.feature_prefix)
+        ]
+        reduced_data = self.model.fit_transform(self.data[features])
+
+        n_components = (
             self.model.n_components_
             if self.method == "PCA"
             else self.model.n_components
         )
-
-    def apply_reduction(self, data, feature_prefix="Ticket_Prefix_"):
-        features = [col for col in data.columns if col.startswith(feature_prefix)]
-        reduced_data = self.fit_transform(data[features])
-
-        n_components = self.get_n_components()
         new_feature_names = [
-            f"{self.method}_{feature_prefix}_{i+1}" for i in range(n_components)
+            f"{self.method}_{self.feature_prefix}_{i+1}" for i in range(n_components)
         ]
-        data.drop(columns=features, inplace=True)
 
+        self.data.drop(columns=features, inplace=True)
         for i, feature_name in enumerate(new_feature_names):
-            data[feature_name] = reduced_data[:, i]
+            self.data[feature_name] = reduced_data[:, i]
 
-        print(
-            f"{self.method} Reduced the features to {self.get_n_components()} components."
+        print(f"{self.method} reduced the features to {n_components} components.")
+        return self.data, new_feature_names
+```
+
+在添加了降维处理类后，我们还需要在 `DataPreprocessor` 调用该类，注意在使用降维类之前，应该将 `TicketPrefix` 先进行编码。示例代码如下
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class DataPreprocessor:
+    def __init__(self, data):
+        self.data = data
+
+    def preprocess(self):
+        AgeProcessor(self.data).fill_age_by_title_group().scaling_z_score("Age")
+        TicketProcessor(self.data).process_ticket()
+
+        encoder = CategoricalEncoder(self.data)
+        _, new_feature_names_sex = encoder.one_hot_encode(["Sex"])
+        _ = encoder.one_hot_encode(["TicketPrefix"])
+
+        reducer = DimensionalityReducer(
+            self.data, method="PCA", n_components=0.95, random_state=42
         )
-        return data, new_feature_names
+        self.data, new_feature_names_ticket_reduced = reducer.apply_reduction()
+
+        # 合并所有新生成的特征名
+        new_feature_names = new_feature_names_sex + new_feature_names_ticket_reduced
+
+        return self.data, new_feature_names
 ```
 
-为了在模型中更为方便的考虑新的降维特征，我们在 `main.py` 中，可以添加一个函数。该函数返回经过降维处理后的所有特征数据，并且同时返回降维后的新特征名。示例代码如下：
+这里的修改较多，除了添加相关新的处理以外，主要是去掉了 `DataPreprocessor` 实例化时需要传入的 `columns`。因此，我们还需要修改 `main.py` 中的相关代码，示例如下：
 
 ```python
-def dimension_preprocess_data(data, method="PCA", n_components=0.95, random_state=None):
-    reducer = DimensionalityReducer(
-        method=method, n_components=n_components, random_state=random_state
-    )
+# titanic/titanic/main.py
+def load_and_preprocess_data(data_path):
+    data = load_data(data_path)
+    processor = DataPreprocessor(data)
+    processed_data, new_feature_names = processor.preprocess()
 
-    ticket_prefix_features = [col for col in data.columns if "Ticket_Prefix_" in col]
-    reduced_data = reducer.fit_transform(data[ticket_prefix_features])
+    return processed_data, new_feature_names
 
-    n_components = reducer.get_n_components()
-    new_feature_names = [f"{method}_Ticket_{i+1}" for i in range(n_components)]
-    data.drop(columns=ticket_prefix_features, inplace=True)
-
-    for i, feature_name in enumerate(new_feature_names):
-        data[feature_name] = reduced_data[:, i]
-
-    print(f"{method} Reduced the features to {reducer.get_n_components()} components.")
-    return data, new_feature_names
-```
-
-按照如上处理，我们在 `main` 函数中，只需要在数据基本处理后，实例化 `DimensionalityReducer`类， 然后将新变量添加到特征变量中就好，示例代码如下：
-
-```python
-def reduce_dimension(data, method="PCA", n_components=0.95, random_state=None):
-    reducer = DimensionalityReducer(
-        method=method, n_components=n_components, random_state=random_state
-    )
-    data, new_feature_names = reducer.apply_reduction(data)
-    return data, new_feature_names
+# 其他代码保持不变
 
 def main():
     data_path = "./data/raw/train.csv"
+    data, new_feature_names = load_and_preprocess_data(data_path)
 
-    data = load_and_preprocess_data(data_path, AdvancedDataProcessor)
-    data, new_feature_names = reduce_dimension(
-        data, method="PCA", n_components=0.95, random_state=None
-    ) # 如要使用svd降维，请修改参数为 method="SVD", n_components=5, random_state=0
-
-    features = [
-        "Pclass",
-        "Sex",
-        "Age",
-        "Family_Size",
-    ] + new_feature_names
+    features = ["Pclass", "Age", "SibSp", "Parch"] + new_feature_names
     target = "Survived"
 
     train_and_evaluate_model(data, features, target)
+
+# 其他代码保持不变
 ```
 
-运行新的 `main.py`，结果如下：
+运行新的 `main.py`，得到如下结果：
 
 ```plaintext
+PCA reduced the TicketPrefix features to 15 components.
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.826816    0.84127  0.716216  0.773723  0.884427
+Values  0.826816   0.820896  0.743243  0.780142  0.887902
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
-Actual Negative                  95                  10
-Actual Positive                  21                  53
+Actual Negative                  93                  12
+Actual Positive                  19                  55
 
 Cross-validated Accuracy (5-fold): 0.843810
 ```
+
+<hr style="border-top: dashed; border-bottom: none">
 
 相较于 `PCA` 来说，运用 `SVD` 技术对特征进行降维稍微会复杂些。复杂的点主要是在确认 `n_components` 上。`SVD` 并没有类似于 `PCA` 方差阈值的参数可以设置。在降维过程中，需要我们根据经验来判断 `n_components` 值的合理性。为了更为直观，我们先探索性分析，不同 `n_components` 下的解释方差比以及累计方差，如下（这部分代码请参考项目文件中的 `notebook/feature_ead.ipynb` 文件）：
 
@@ -2084,19 +2093,20 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 可以看出，当 `n_components=16` 时，累计方差达到约95%。这意味着保留前 16 个 SVD 组件就可以解释原始数据约 95% 的方差，这通常是一个选择组件数量的好标准，因为它确保了大部分信息被保留，同时也减少了特征数量，降低了模型的复杂度。但是，查看解释方差比，发现在 `n_components = 5` 左右时出现 elbow of the curve。哪到底 `n_components` 如何选择？有的时候（比如从降低计算成本的角度）根据解释方差比来选择可能更好。不过，这里我们可以都试试，检查下对模型评估指标的影响。
 
-由于在 `DimensionalityReducer` 类中，我们已经构建了 `SVD` 的相关计算过程，因此，我们只需要在 `main` 函数中修改 `DimensionalityReducer` 的参数 `method`, `n_components`, `random_state`。
+由于在 `DimensionalityReducer` 类中，我们已经构建了 `SVD` 的相关计算过程，因此，我们只需要在 `DataPreprocessor` 类中修改 `DimensionalityReducer` 的参数 `method`, `n_components`, `random_state`即可。
 
 当设置 `n_components=16` 时，模型的评估指标如下：
 
 ```plaintext
+SVD reduced the TicketPrefix features to 16 components.
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.821229   0.828125  0.716216  0.768116  0.884427
+Values  0.826816   0.820896  0.743243  0.780142  0.888417
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
-Actual Negative                  94                  11
-Actual Positive                  21                  53
+Actual Negative                  93                  12
+Actual Positive                  19                  55
 
 Cross-validated Accuracy (5-fold): 0.843810
 ```
@@ -2104,33 +2114,34 @@ Cross-validated Accuracy (5-fold): 0.843810
 当 `n_components=5` 时，模型的评估指标如下：
 
 ```plaintext
+SVD reduced the TicketPrefix features to 5 components.
 Evaluation Metrics:
-        Accuracy  Precision    Recall  F1 Score  ROC AUC
-Values  0.821229   0.828125  0.716216  0.768116  0.88018
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.832402   0.833333  0.743243  0.785714  0.883398
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
 Actual Negative                  94                  11
-Actual Positive                  21                  53
+Actual Positive                  19                  55
 
-Cross-validated Accuracy (5-fold): 0.843810
+Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-对比发现，这两情景下，当 `n_components=5` 时 只在 `ROC AUC` 有了些许降低，其他评估指标并没有明显变化。从这个结论上说，`n_components=5` 可能是一个明智的选择。
+对比这两情景下，当 `n_components=5` 时 只在 `ROC AUC` 有了些许降低，其他评估指标均优于 `n_components=16` 。从这个结论上说，`n_components=5` 可能是一个明智的选择。
 
-对比前面的结果，我们可以发现：
+与前面的结果进行对比，发现：
 
-1. **准确率（Accuracy）**：使用 `PCA` 降维的模型展现出略高的准确率（0.826816）相比于未降维（0.821229）和使用 `SVD` 降维（0.821229）。尽管差异不大，这表明 `PCA` 有助于稍微提高模型的整体预测准确性。
-2. **精确率（Precision）**：`PCA` 降维的模型也展现出略高的精确率（0.84127）比较于未降维（0.828125）和 `SVD` 降维（0.828125）。这表示在预测为正类的数据中，使用 `PCA` 降维的模型有更高的比例是正确的。
-3. **召回率（Recall）**：在召回率上，三种处理方式得到的结果相同（0.716216），说明在实际为正类的数据中，模型识别出的比例没有变化。
-4. **F1得分（F1 Score）**：`PCA` 降维的模型有稍微高的 `F1` 得分（0.773723），相比于未降维（0.768116）和 `SVD` 降维（0.768116）。`F1` 得分是精确率和召回率的调和平均值，更高的 `F1` 得分表示模型在精确率和召回率之间有更好的平衡。
-5. **ROC AUC**：未降维和 `PCA` 降维的模型具有相同的 `ROC AUC` 值（0.884427），而 `SVD` 降维后有略低的 `ROC AUC` 值（0.88018）。`ROC AUC`衡量的是模型对正负类的区分能力，高值表示模型具有更好的区分能力。
-6. **交叉验证的准确率（Cross-validated Accuracy）**：在 5 折交叉验证中，三种处理方式的模型展现出相同的准确率（0.843810），这说明模型的稳定性和泛化能力在这三种处理下相似。
-7. **不考虑Ticket特征**: 仅考虑 `Pclass`, `Sex`, `Age`, `Family_Size`时，模型的准确率为0.826816，ROC AUC为0.894015，交叉验证准确率为0.866190。这组结果显示了一个较强的基线，表明即使不考虑 `Ticket_Prefix` 特征，模型也能表现良好。
+1. **未进行降维处理的情况**：模型的准确度为 0.826816，精确度为 0.820896，召回率为 0.743243，F1 分数为 0.780142，ROC AUC 为 0.888803。在不降维的情况下，模型可能面临特征过多而导致的维度灾难，但在这个结果中表现出相对稳健的性能。
+2. **PCA 降维处理的情况**：PCA 将 `TicketPrefix` 特征降至15个主成分，准确度、精确度、召回率、F1 分数与未降维的情况几乎一致，但 ROC AUC 略有下降。这表明 PCA 降维在保持模型性能的同时，减少了模型的复杂度，有助于模型的解释性和计算效率。
+3. **SVD 降维处理的情况**：SVD 降维至5个组件后，模型的准确度略有提高至 0.832402，精确度也有所提升，但 ROC AUC 略有下降。SVD 降维较 PCA 更为激进，只保留了5个组件，可能导致了一些信息的损失，从而影响了ROC AUC的表现。
 
-综上，使用 `PCA` 对 `Ticket Prefix` 特征进行降维在一定程度上改善了模型的准确率和精确率，尽管改善不是非常显著，但这表明了在特定情况下降维可以为模型带来轻微的性能提升。同时，与不考虑 `Ticket` 特征相比，虽然使用 PCA 降维的模型部分评估指标略有提升，但交叉验证准确率略有下降。这可能也意味着 `Ticket_Prefix` 特征提供了一些有价值的信息，但这些信息的贡献相对有限，此外，在交叉验证准确率方面，所有模型都相对一致，但不考虑 `Ticket` 特征的模型略高，这表明其泛化能力可能更强。
+从上述结果可以看出，降维技术在减少模型复杂度和计算资源消耗的同时，对模型的整体性能影响较小，特别是在准确度和 F1 分数上。降维后模型的 ROC AUC 有轻微下降，这可能是因为降维过程中丢失了一些有助于模型区分正负类别的信息。在实际应用中，选择是否进行降维以及使用哪种降维技术，需要根据具体问题和数据集的特性综合考虑，同时要考虑到模型性能、计算效率和可解释性之间的平衡。<strong style="color:#c21d03"> 因此，如果计算资源充足，且对模型的可解释性要求不高，可以考虑不进行降维。如果需要减少计算资源消耗或提高模型的可解释性，可以选择 PCA 或 SVD 等降维方法。</strong> 不过，具体选择哪种降维方法，还需要根据实际应用场景和模型性能的需求来决定。
 
-以上是采用相关降维技术对 One-Hot 编码后的特征进行处理。从上面的分析过程可以发现，我们在处理 `Ticket` 特征时，其实并没有应用 EDA 分析得出的一些有用信息。比如说，在单变量分析中，我们发现，大多数票都没有前缀，**PC**, **CA**, **A**, **STONO** 等是接下来最常见的票号前缀。其他前缀如 **SC**, **SWPP**, **FCC** 等出现的次数相对较少。结合生存率来看，**SC** 和 **SWPP** 前缀的票号有最高的生存率（1.00），没有明显前缀的票，生存率仅为 0.38。同时也发现，生存率较高的对应的票数较少，而普通的票最多的，生存率仅约1/3。这给我们一个启示，能否在对 `Ticket` 的前缀 One-Hot 编码前进行处理。以减少 One-Hot 编码后的特征，从而达到降维的要求。同时，这也可以帮助我们更为细致的控制如何处理这些前缀，特别是某些罕见的前缀。
+同时，我们与不考虑 `Ticket` 特征时的评估结果对比，发现，虽然考虑 `Ticket` 特征时，在部分指标（如准确率，精确率，F1 得分）上对逻辑回归模型训练效果有所提升，但，其在ROC AUC, 交叉验证上均有一定程度的下降。虽然下降不是很明显，但提升的效果也是有限的。<strong style="color:#c21d03"> 因此，后续的模型训练中，我们暂时不考虑 `Ticket` 特征。 </strong>
+
+<hr style="border-top: dashed; border-bottom: none">
+
+虽然我们在后续的模型训练中暂时不纳入 `Ticket` 特征。但是，以上是采用相关降维技术对 One-Hot 编码后的特征进行处理。从上面的分析过程可以发现，我们在处理 `Ticket` 特征时，其实并没有应用 EDA 分析得出的一些有用信息。比如说，在单变量分析中，我们发现，大多数票都没有前缀，**PC**, **CA**, **A**, **STONO** 等是接下来最常见的票号前缀。其他前缀如 **SC**, **SWPP**, **FCC** 等出现的次数相对较少。结合生存率来看，**SC** 和 **SWPP** 前缀的票号有最高的生存率（1.00），没有明显前缀的票，生存率仅为 0.38。同时也发现，生存率较高的对应的票数较少，而普通的票最多的，生存率仅约1/3。这给我们一个启示，能否在对 `Ticket` 的前缀 One-Hot 编码前进行处理。以减少 One-Hot 编码后的特征，从而达到降维的要求。同时，这也可以帮助我们更为细致的控制如何处理这些前缀，特别是某些罕见的前缀。
 
 很明显，如果仅考虑 `Ticket_Prefix` 时，我们可以将其简单的分成常见和罕见两类，从而大大减少了特征编码后的变量。这里的难点是如何定义常见和罕见？可能有同学会想到，我们可以设定一个阈值，比如选择覆盖约80%-90%的数据的前缀为常见前缀，其余的为罕见。当然是可以的。如果想更为细致的分类，我们还可以选择多个阈值区间？
 
@@ -2145,25 +2156,5 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 ![](/assets/images/ml/titanic_ticket_prefix_frequency_cumulative.png)
 
-<hr>
 
-<hr>
-由于前期我们在构建 `ticket_preprocess` 方法时，提取出票号前缀后，马上就进行了 One-Hot 编码。但上面的描述，需要我们提取出前缀后，先进行相应处理，然后再进行 One-Hot 编码。为了保证模块化，这就需要我们适当的修改 `ticket_preprocess` 方法。修改的过程也较为简单，可以添加一个 `onehot` 参数，默认设置为 `True`，示例代码如下。
-
-```python
-class DataProcessor:
-    # 其他代码保持不变
-
-    def ticket_preprocess(self, onehot=True):
-        self.data["Ticket_Prefix"] = self.data["Ticket"].apply(
-            lambda x: (
-                "".join(filter(str.isalpha, x.split(" ")[0]))
-                if not x.isdigit()
-                else "None"
-            )
-        )
-
-        if onehot:
-           self.data = pd.get_dummies(self.data, columns=["Ticket_Prefix"])
-```
 
