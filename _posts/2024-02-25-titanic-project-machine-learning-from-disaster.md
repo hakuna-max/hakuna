@@ -1302,13 +1302,12 @@ Model Accuracy (fill age by title group): 0.810056
 - **特征重要性**：查看模型中 `Age` 特征的重要性，以判断其对模型的影响程度。
 - **其他评估指标**：除了准确率外，还可以考虑使用其他指标（如F1分数、ROC曲线下面积等）来评估模型性能的差异。
 
-现在试着增加模型评估指标，进一步评估采用了按头衔分类后的中位数填补 `Age` 缺失值后的模型训练情况。这里主要涉及到 `model.py` 文件的修改，示例代码如下：
+现在试着增加模型评估指标，进一步评估采用了按头衔分类后的中位数填补 `Age` 缺失值后的模型训练情况。这里主要涉及到 `evaluation.py` 文件的增加，将所有评估指标均放入到该文件中，示例代码如下：
 
 ```python
-# titanic/titian/model.py
+# titanic/titian/evaluation.py
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -1319,7 +1318,7 @@ from sklearn.metrics import (
     roc_curve,
     auc,
 )
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import cross_val_score
 
 import matplotlib.pyplot as plt
 
@@ -1390,28 +1389,9 @@ class ModelEvaluator:
         # plt.show()
 
         return metrics
-
-
-class BaseModel:
-    def __init__(self):
-        self.model = LogisticRegression(max_iter=1000, random_state=0)
-        self.evaluator = None  # 在训练时设置
-
-    def train(self, X, y):
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        self.model.fit(X_train, y_train)
-        self.evaluator = ModelEvaluator(
-            self.model, X_test, y_test
-        )  # 在训练后创建评估器
-
-    def evaluate(self, cv=5):
-        if self.evaluator:
-            return self.evaluator.evaluate(cv=cv)
-        else:
-            raise ValueError("The model needs to be trained before evaluation.")
 ```
+
+添加如上文件后，我们需要将 `model.py` 涉及到模型评估的代码删除，并且导入 `ModelEvaluator`。
 
 `main.py` 中的代码可以不用修改。但由于我们在 `ModelEvaluator` 包含了评估指标结果输出。因此，可以适当修改 `main.py`，去掉之前的打印结果的部分，如下：
 
