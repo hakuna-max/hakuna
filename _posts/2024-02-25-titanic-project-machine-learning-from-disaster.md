@@ -1618,7 +1618,7 @@ Cross-validated Accuracy (5-fold): 0.866190
 
 综上所述，`SibSp` 和 `Parch` 特征对模型有正面影响，尤其是当它们同时使用时，能显著提高模型的预测性能。这可能是因为这些特征能够反映家庭结构对乘客生存率的影响，这是模型在没有这些信息时无法捕捉到的。因此，后面，<strong style="color:#c21d03"> 计划考虑将 `SibSp` 和 `Parch` 作为特征构建模型 </strong>，以提高预测的准确性和模型的泛化能力。但是，考虑到 `Parch` 的添加可能对模型的影响有限，我们计划进一步处理特征。
 
-<hr style="border-top: dashed; border-bottom: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加一个新类 `FamilySizeProcessor`。然后在 `DataPreprocessor` 中调用，其他保持不变就可以了，示例代码如下：
 
@@ -1926,7 +1926,7 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 总体来看，加入票号前缀特征后，模型在准确率、精确度、F1分数上有所提高，但在ROC AUC和交叉验证准确率上有轻微下降。这可能意味着票号前缀提供了有用的信息，但也可能引入了一些噪声，影响了模型的泛化能力。在实际应用中，是否加入这类特征需要根据具体情况和模型表现来决定。
 
-<hr style="border-top: dashed; border-bottom: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 由于考虑票号前缀时引入了较多的新特征。下面，我们计划首先从降维的角度思考如何处理 `Ticket_Prefix`。降维可以减少特征空间的维度，同时尽量保留原始数据中的重要信息。下面列出了部分常用的降维方法：
 
@@ -2065,7 +2065,7 @@ Actual Positive                  19                  55
 Cross-validated Accuracy (5-fold): 0.843810
 ```
 
-<hr style="border-top: dashed; border-bottom: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 相较于 `PCA` 来说，运用 `SVD` 技术对特征进行降维稍微会复杂些。复杂的点主要是在确认 `n_components` 上。`SVD` 并没有类似于 `PCA` 方差阈值的参数可以设置。在降维过程中，需要我们根据经验来判断 `n_components` 值的合理性。为了更为直观，我们先探索性分析，不同 `n_components` 下的解释方差比以及累计方差，如下（这部分代码请参考项目文件中的 `notebook/feature_ead.ipynb` 文件）：
 
@@ -2119,7 +2119,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 同时，我们与不考虑 `Ticket` 特征时的评估结果对比，发现，虽然考虑 `Ticket` 特征时，在部分指标（如准确率，精确率，F1 得分）上对逻辑回归模型训练效果有所提升，但，其在ROC AUC, 交叉验证上均有一定程度的下降。虽然下降不是很明显，但提升的效果也是有限的。<strong style="color:#c21d03"> 因此，后续的模型训练中，我们暂时不考虑 `Ticket` 特征。 </strong>
 
-<hr style="border-top: dashed; border-bottom: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 虽然我们在后续的模型训练中暂时不纳入 `Ticket` 特征。但是，以上是采用相关降维技术对 One-Hot 编码后的特征进行处理。从上面的分析过程可以发现，我们在处理 `Ticket` 特征时，其实并没有应用 EDA 分析得出的一些有用信息。比如说，在单变量分析中，我们发现，大多数票都没有前缀，**PC**, **CA**, **A**, **STONO** 等是接下来最常见的票号前缀。其他前缀如 **SC**, **SWPP**, **FCC** 等出现的次数相对较少。结合生存率来看，**SC** 和 **SWPP** 前缀的票号有最高的生存率（1.00），没有明显前缀的票，生存率仅为 0.38。同时也发现，生存率较高的对应的票数较少，而普通的票最多的，生存率仅约1/3。这给我们一个启示，能否在对 `Ticket` 的前缀 One-Hot 编码前进行处理。以减少 One-Hot 编码后的特征，从而达到降维的要求。同时，这也可以帮助我们更为细致的控制如何处理这些前缀，特别是某些罕见的前缀。
 
@@ -2205,7 +2205,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 因此，<strong style="color:#c21d03">如果要考虑对 `TicketPrefix` 进行降维处理，相对于 PCA 和 SVD 来说，按照频率的分类可能是一个较好的选择。</strong>
 
-<hr style="border-top: dashed; border-bottom: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 现在我们试着用其他与生存率相关性较强的特征对票号前缀进行分类。要实现这个目的，我们首先需要确定不同特征与生存率之间的相关性。由于原始数据集中既包括数值型变量，也包括类别型数据，这就出现了如何评估类别型数据与数值型变量之间的相关性问题。以下是几种处理数值型和类别型数据相关性分析的方法：
 1. **对于数值型变量之间**：可以使用皮尔逊相关系数（Pearson correlation coefficient）来衡量它们之间的线性相关性。
@@ -2214,6 +2214,6 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 具体到本项目的数据，由于目标变量是类别型变量。那么，我们应该主要考虑采用**类别型变量之间**以及**对于数值型和类别型变量之间**两类方法来进行相关性分析。
 
-<hr style="border-top: dashed red; border-bottom: none; background-color: none">
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 [^1]: 使用点双列相关通常需要满足一些前提假设，例如**正态分布假设**，**线性关系**，**样本容量**等。但在实际应用中，这些假设可以有一定的灵活性。比如关于**正态分布假设**，确实，理想情况下，连续变量应接近正态分布。但在实践中，特别是对于大样本数据，中心极限定理保证了即使数据不完全正态，相关性测试结果也是可靠的。在 Titanic 数据集中，连续变量（如年龄、票价）可能不完全符合正态分布，但仍可计算点双列相关系数以得到大致的相关趋势。对于**线性关系假设**，点双列相关系数度量的是变量之间的线性关系。即使实际关系不是完全线性的，该系数也可以提供一个关系强度的估计。对于 Titanic 数据集，你可以先通过可视化（如散点图）初步探索生存率与数值变量之间的关系，判断是否存在大致的线性趋势。因此，尽管 Titanic 数据集中的数值型特征可能不完全符合点双列相关系数的所有理论假设，该方法仍然是探索生存特征与其他数值型特征相关性的有用工具。
