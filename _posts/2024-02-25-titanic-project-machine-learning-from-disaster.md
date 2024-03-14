@@ -23,6 +23,7 @@ sidebar: []
   - [第二次尝试（`Age` 特征标准化/归一化）](#第二次尝试age-特征标准化归一化)
   - [第三次尝试（考虑 `SibSp` 和 `Parch` 特征)](#第三次尝试考虑-sibsp-和-parch-特征)
   - [第四次尝试（考虑 `Ticket` 特征）](#第四次尝试考虑-ticket-特征)
+  - [第五次尝试（考虑 `Fare` 特征）](#第五次尝试考虑-fare-特征)
 
 <hr>
 
@@ -2216,9 +2217,66 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 ![](/assets/images/ml/titanic_feature_correlations.png)
 
+由于我们本意是结合生存率来对 `TicketPrefix` 分类。因此，按照上图所示中的相关性，可能选择 `Title_Grouped` 来对 `TicketPrefix` 更为合适（`Title` 与生存率之间存在最大的正相关）。具体来说，我们可以选择查看每个 `Title_Grouped` 类别下，`TicketPrefix` 的出现频率，然后根据这个频率来分类，示例代码如下：
 
+```python
+# 其他代码保持不变
+class TicketProcessor(BaseProcessor):
+    # 其他代码保持不变
+
+    def categorize_ticket_prefix_using_title(self):
+        # 确保Title已经在数据中
+        if "Title_Grouped" not in self.data.columns:
+            self.data = AgeProcessor(self.data).fill_age_by_title_group().data
+
+        # 初始化列
+        self.data["TicketPrefixCategorized"] = "Others"
+
+        # 对每个Title_Grouped类别，找出TicketPrefix的频率，并进行分类
+        for title_group in self.data["Title_Grouped"].unique():
+            # 计算当前Title_Grouped下每个TicketPrefix的频率
+            prefix_freq = self.data[self.data["Title_Grouped"] == title_group][
+                "TicketPrefix"
+            ].value_counts(normalize=True)
+
+            # 设置阈值，前缀频率大于等于10%才分类为特定前缀，否则为'Others'
+            threshold = 0.1
+            significant_prefixes = prefix_freq[prefix_freq >= threshold].index.tolist()
+
+            # 对当前Title_Grouped下的每个TicketPrefix进行分类
+            for prefix in significant_prefixes:
+                self.data.loc[
+                    (self.data["Title_Grouped"] == title_group)
+                    & (self.data["TicketPrefix"] == prefix),
+                    "TicketPrefixCategorized",
+                ] = prefix
+
+        return self
+# 其他代码保持不变
+```
+
+重新运行 `main.py`，评估结果如下：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.810056   0.785714  0.743243  0.763889  0.888546
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  90                  15
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.843810
+```
+
+与按照 `TicketPrefix` 的频率和其累计频率分类的评估结果对比，这种复杂的分类方法并没有产生太多正面的影响。除了在 ROC AUC 有了些许上升外，其他指标要不持平，要不下降。因此，<strong style="color:#c21d03">可以得出，该种分类方法对于本项目的逻辑回归模型训练可能并不合适。</strong>
+
+同学们可以测试下余下的其他分类策略是否能对逻辑回归模型训练效果有所影响。对于  `Ticket` 特征的处理暂告一段落。 
 
 [^1]: 使用点双列相关通常需要满足一些前提假设，例如**正态分布假设**，**线性关系**，**样本容量**等。但在实际应用中，这些假设可以有一定的灵活性。比如关于**正态分布假设**，确实，理想情况下，连续变量应接近正态分布。但在实践中，特别是对于大样本数据，中心极限定理保证了即使数据不完全正态，相关性测试结果也是可靠的。在 Titanic 数据集中，连续变量（如年龄、票价）可能不完全符合正态分布，但仍可计算点双列相关系数以得到大致的相关趋势。对于**线性关系假设**，点双列相关系数度量的是变量之间的线性关系。即使实际关系不是完全线性的，该系数也可以提供一个关系强度的估计。对于 Titanic 数据集，你可以先通过可视化（如散点图）初步探索生存率与数值变量之间的关系，判断是否存在大致的线性趋势。因此，尽管 Titanic 数据集中的数值型特征可能不完全符合点双列相关系数的所有理论假设，该方法仍然是探索生存特征与其他数值型特征相关性的有用工具。
 
-<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
+<hr/>
+
+### 第五次尝试（考虑 `Fare` 特征）
 
