@@ -24,9 +24,10 @@ sidebar: []
   - [第三次尝试（考虑 `SibSp` 和 `Parch` 特征)](#第三次尝试考虑-sibsp-和-parch-特征)
   - [第四次尝试（考虑 `Ticket` 特征）](#第四次尝试考虑-ticket-特征)
   - [第五次尝试（考虑 `Fare` 特征）](#第五次尝试考虑-fare-特征)
-- [模型训练与评估流程图](#模型训练与评估流程图)
+  - [第六次尝试（考虑 `Cabin` 特征）](#第六次尝试考虑-cabin-特征)
+  - [模型训练与评估流程图](#模型训练与评估流程图)
 
-<hr>
+<hr/>
 
 ## Titanic 项目介绍
 
@@ -1457,7 +1458,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 从以上评估结果上看，两种不同的 `Age` 填补策略在单次评估中得到了相同的准确度、精确度、召回率和F1分数。而且混淆矩阵也完全一致，这表明两种策略在预测真正例、假正例、真负例和假负例的数量上没有差异。这也表明在这次测试集上，两种填补策略对模型性能的影响相同。不过，我们也发现，使用 `Age` 列按头衔分类后的中位数填补的策略在5折交叉验证的平均准确度上高于使用 `Age` 列整体中位数填补的策略（0.849365 vs. 0.827143）。这表明虽然在单个测试集上两种策略的性能相同，但在更广泛的数据上考虑，按头衔分类填补 `Age` 的策略可能更为稳健，能够提供更高的平均准确度。它们在交叉验证的准确度上有所不同。因此，后面我们将考虑采用<strong style="color:#c21d03">按头衔分类后的中位数填补 `Age` 策略</strong>，该种策略可能对未见数据具有更好的泛化能力。
 
-<hr>
+<hr/>
 
 ### 第二次尝试（`Age` 特征标准化/归一化）
 
@@ -1551,7 +1552,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 🤩，采用 `Z-Score` 后的结果居然和未标准化的一致。有些意外。逻辑回归模型似乎对 `Age` 特征的的标准化过程有较为敏感的返回。`Z-Score` 的评估结果优于其他两种方法的原因可能是由于 `Age` 特征在未标准化时已经相对集中，倾向于正态分布。而 `Z-Score` 恰恰适合于该类分布。虽然 `Z-Score` 并没有增强模型的能力，但似乎也没有什么坏处，考虑到后期我们可能会选择其他分类模型，<strong style="color:#c21d03">暂时保留 `Z-Score` 对 `Age` 特征的标准化</strong>。
 
-<hr>
+<hr/>
 
 ### 第三次尝试（考虑 `SibSp` 和 `Parch` 特征)
 
@@ -2281,7 +2282,101 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 ### 第五次尝试（考虑 `Fare` 特征）
 
-## 模型训练与评估流程图
+在此，我们继续进一步单独考虑 `Fare` 特征。 由于是数值型数据，该特征处理过程相对简单。由 EDA 分析可知， `Fare` 特征分布呈现出极度的右偏，表明大多数乘客支付的票价较低。这种情况下，我们至少需要对其进行数据转换。从代码角度上来说，也是比较简单的，由于我们前期在 `BaseProcessor` 基础类中已经构建了相关数据转换方法。由此，下面只需要在 `DataPreprocessor` 中添加对该特征的处理，以及将该特征包含在 `main` 函数中的 `feature` 变量中就成。示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    def __init__(self, data):
+        self.data = data
+
+    def preprocess(self):
+        # 其他代码保持不变
+        BaseProcessor(self.data).scaling_robust("Fare") # 数据转换方法可以选择其他
+        # 其他代码保持不变
+        return self.data, new_feature_names
+```
+
+```python
+# titanic/titanic/main.py
+def main():
+    # 其他代码保持不变
+    features = ["Pclass", "Age", "SibSp", "Parch", "Fare"] + new_feature_names
+   # 其他代码保持不变
+```
+
+当选择不同数据转换方法时，重新运行 `main.py` 后的结果如下：
+
+经过 `RobustScaler` 转换后的结果：
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.896139
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.860635
+```
+
+经过 `Min-Max` 转换后的结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.797101  0.743243  0.769231  0.895882
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.866190
+```
+经过 `Z-Score` 转换后的结果：
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.896139
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.860635
+```
+
+不经过转换时的评估结果：
+
+```plaintext
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score  ROC AUC
+Values  0.804469   0.791045  0.716216  0.751773  0.89601
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+对比这些结果，我们可以注意到几个关键点：
+
+- **考虑 `Fare` 特征前后**：在考虑 `Fare` 特征之前的模型表现在多数指标上稍优于考虑 `Fare` 特征后的模型。准确率最高，而且 Cross-validated Accuracy 也较高。
+- **不同的 `Fare` 转换方法**：**RobustScaler** 和 **Z-Score** 转换后的结果相同，显示了相对较低的准确率和 Cross-validated Accuracy。**Min-Max** 转换提供了较好的准确率和 Cross-validated Accuracy，与不考虑 `Fare` 特征的模型表现相当。未经转换的 `Fare` 特征结果表现在准确率和 Cross-validated Accuracy 上略低于 **Min-Max** 转换和原始模型。
+
+因此，在**考虑 `Fare` 特征**后，模型的表现在某些度量上略有下降，这可能表明 `Fare` 特征没有提供额外的有用信息，或者模型无法有效地利用这一信息。而在**特征转换的影响**上，特征的转换方法对模型的性能有明显的影响。在这种情况下，**Min-Max** 转换表现得最好，而 **RobustScaler** 和 **Z-Score** 转换没有带来预期的性能提升。<strong style="color:#c21d03"> 所以，我们大致可以得出，在逻辑回归模型下，如果要考虑 `Fare` 特征，应该采用 **Min-Max** 对原始数据进一步处理。</strong>
+
+<hr/>
+
+### 第六次尝试（考虑 `Cabin` 特征）
+
+<hr/>
+### 模型训练与评估流程图
 
 ![](/assets/images/ml/titianic_model_training_evaluation_workflow.svg)
 
