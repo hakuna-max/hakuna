@@ -2589,6 +2589,21 @@ class EmbarkedProcessor(BaseProcessor):
         new_feature = ["EmbarkedFillCommon"]
         self.data[new_feature[0]] = self.data["Embarked"].fillna(most_common_value)
         return self.data, new_feature
+
+
+class DataProcessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        embarked_processor = EmbarkedProcessor(self.data)
+        self.data, new_features_embarked = (
+            embarked_processor.fill_missing_with_most_common()
+        )
+        self.data, new_features_embarked = base_processor.one_hot_encode(
+            new_features_embarked[0]
+        )
+        self.features.extend(new_features_embarked)
+        return self.data, self.features
 ```
 
 运行 `main.py` 后的逻辑回归模型评估指标结果：
@@ -2608,6 +2623,8 @@ Cross-validated Accuracy (5-fold): 0.843651
 ```
 
 与极限模型中的评估结果相比，所有评估指标均有所提升（交叉验证保持一致），但效果不明显。因此，可以说，在训练逻辑回归模型时可以将 `Embarked` 特征纳入其中。
+
+<hr/>
 
 到此，我们基本上对每一个特征进行了相关分析。但是，我们基本上是单独考虑各个特征。由前面的多变量分析可知，不同变量的组合对生存情况有组合效应。例如：虽然女性在所有等级的船舱中生存率都较高，但三等舱的女性乘客生存率与一等舱和二等舱相比有显著下降。这可能表明，尽管性别是一个强有力的生存预测因子，船舱等级也在生存机会中扮演了重要角色。因此，接下来，我们进一步根据多变量分析的启示，构建组合特征，并探讨其对基线模型的训练效果的影响。
 
