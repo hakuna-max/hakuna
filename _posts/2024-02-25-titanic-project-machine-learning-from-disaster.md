@@ -25,6 +25,8 @@ sidebar: []
   - [第四次尝试（考虑 `Ticket` 特征）](#第四次尝试考虑-ticket-特征)
   - [第五次尝试（考虑 `Fare` 特征）](#第五次尝试考虑-fare-特征)
   - [第六次尝试（考虑 `Cabin` 特征）](#第六次尝试考虑-cabin-特征)
+  - [第七次尝试（考虑 `Embarked` 特征）](#第七次尝试考虑-embarked-特征)
+  - [第八次尝试（考虑组合特征）](#第八次尝试考虑组合特征)
   - [模型训练与评估流程图](#模型训练与评估流程图)
 
 <hr/>
@@ -1099,8 +1101,8 @@ from model import BaseModel
 def load_and_preprocess_data(data_path, columns):
     data = load_data(data_path)
     processor = DataPreprocessor(data, columns=columns)
-    processed_data, new_columns = processor.preprocess()
-    return processed_data, new_columns
+    processed_data, features = processor.preprocess()
+    return processed_data, features
 
 
 def train_and_evaluate_model(data, features, target):
@@ -1111,16 +1113,13 @@ def train_and_evaluate_model(data, features, target):
 
 
 def main():
+    def main():
     data_path = "./data/raw/train.csv"
-    data, new_feature_names = load_and_preprocess_data(data_path, columns=["Sex"])
-
-    features = [
-        "Pclass",
-        "Age",
-    ] + new_feature_names
+    processed_data, features = load_and_preprocess_data(data_path)
+    # print(features)
     target = "Survived"
 
-    accuracy = train_and_evaluate_model(data, features, target)
+    train_and_evaluate_model(processed_data, features, target)
 
     print(f"Baseline Model Accuracy: {accuracy:.04f}")
 
@@ -1184,49 +1183,59 @@ from sklearn.preprocessing import OneHotEncoder
 class BaseProcessor:
     def __init__(self, data):
         self.data = data
+        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
 
+     def one_hot_encode(self, column):
+        encoded = self.encoder.fit_transform(self.data[[column]])
+        new_cols = [f"{column}_{cat}" for cat in self.encoder.categories_[0]]
+        self.data = self.data.drop(column, axis=1)
+        self.data[new_cols] = pd.DataFrame(encoded, index=self.data.index)
+        return self.data, new_cols
+
+class PclassProcessor(BaseProcessor):
+    def process_pclass(self):
+        new_features = ["Pclass"]
+        return self.data, new_features
+
+class SexProcessor(BaseProcessor):
+    def sex_one_hot_encode(self):
+        self.data, new_features = super().one_hot_encode("Sex")
+        return self.data, new_features
 
 class AgeProcessor(BaseProcessor):
     def fill_missing_values(self):
-        self.data["Age"] = self.data["Age"].fillna(self.data["Age"].median())
-        return self
-
-
-class CategoricalEncoder:
-    def __init__(self, data):
-        self.data = data
-        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-
-    def one_hot_encode(self, columns):
-        new_columns = []
-        for column in columns:
-            encoded = self.encoder.fit_transform(self.data[[column]])
-            new_cols = [f"{column}_{cat}" for cat in self.encoder.categories_[0]]
-            new_columns.extend(new_cols)
-            self.data.drop(column, axis=1, inplace=True)
-            self.data[new_cols] = encoded
-        return self, new_columns
-
+        new_feature = ["AgeFillMedian"]
+        self.data[new_feature[0]] = self.data["Age"].fillna(self.data["Age"].median())
+        return self.data, new_feature
 
 class DataPreprocessor:
-    def __init__(self, data, columns):
+    def __init__(self, data):
         self.data = data
-        self.columns = columns
+        self.features = []
 
-    def preprocess(self):
-        AgeProcessor(self.data).fill_missing_values()
+     def preprocess(self):
+        """数据处理逻辑， 返回处理后的数据集以及应该考虑的特征"""
 
-        encoder = CategoricalEncoder(self.data)
-        _, new_columns = encoder.one_hot_encode(self.columns)
-        self.data = encoder.data
-        return self.data, new_columns
+        plcass_processor = PclassProcessor(self.data)
+        self.data, new_features_plcass = plcass_processor.process_pclass()
+        self.features.extend(new_features_plcass)
+
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_missing_values()
+        self.features.extend(new_features_age)
+
+        sex_processor = SexProcessor(self.data)
+        self.data, new_features_sex = sex_processor.sex_one_hot_encode()
+        self.features.extend(new_features_sex)
+
+        return self.data, self.features
 ```
 
 有两点值得说明：
 
 - 关于 `Age` 的处理。结合 EDA 分析，我们是知道该特征有缺失值，从分布上看，也存在异常值。因此，这里用了该列的中位数来填充（可能有更好的处理方式，后面再讨论）。中位数对于异常值不敏感，相对更加稳定。
 - 关于 `Pclass` 特征。在数据处理中，我们并没有预处理该特征，主要是考虑到 `Pclass` 中的数值（1， 2， 3）能够直接反应生存概率的顺序关系（即1级舱生存概率最高，然后是2级，最后是3级）。Logistic Regression 模型可以直接处理这种有序的数值特征。
-- 关于 `Sex` 特征。由于该特征的原始值为 `male` 和 `female`。不能直接输入到逻辑回归模型中，需要对其进行编码转换，在这里我们选择了 One-Hot 的方式。考虑到后续还要用该方法对其他类别型数据进行处理，所以，在这我们专门构建了一个类。此外，为了方便在 `main` 函数中增加处理后的特征，特意在该类中 `one_hot_encoder` 方法中返回了新构建的特征名称。
+- 关于 `Sex` 特征。由于该特征的原始值为 `male` 和 `female`。不能直接输入到逻辑回归模型中，需要对其进行编码转换，在这里我们选择了 One-Hot 的方式。考虑到后续还要用该方法对其他类别型数据进行处理，所以，我们在基类中构建了一个专门处理One-Hot编码的方法，此方法接受一个列名。此外，为了方便在 `main` 函数中增加处理后的特征，特意在该类中 `one_hot_encoder` 方法中返回了新构建的特征名称。
 
 到此，我们的基线模型就构建好了，运行 `main.py`， 可以得出如下结果：
 ```plaintext
@@ -1243,44 +1252,67 @@ Baseline Model Accuracy: 0.810056
 
 ```python
 # titanic/titanic/data_preprocessing.py
-class AgeProcessor(BaseProcessor):
-    # 其他代码保持不变
-
-    def fill_age_by_title_group(self):
+class TitleProcessor(BaseProcessor):
+    def extract_title(self):
         self.data["Title"] = self.data["Name"].apply(
             lambda x: x.split(", ")[1].split(". ")[0]
         )
+        return self
+
+    def group_titles(self):
         title_counts = self.data["Title"].value_counts()
         rare_titles = title_counts[title_counts < 10].index
         self.data["Title_Grouped"] = self.data["Title"].apply(
             lambda x: "Rare" if x in rare_titles else x
         )
+        return self
 
-        for title_group, group in self.data.groupby("Title_Grouped"):
+
+class AgeProcessor(BaseProcessor):
+    # 其他代码保持不变
+
+    def fill_age_by_title_group(self, title_grouped_column="Title_Grouped"):
+        if title_grouped_column not in self.data.columns:
+            raise ValueError(f"{title_grouped_column} column is missing in the data")
+
+        new_feature = ["AgeFillTitleGrouped"]
+        self.data[new_feature[0]] = self.data["Age"].copy()
+
+        for title_group, group in self.data.groupby(title_grouped_column):
             median_age = group["Age"].median()
             self.data.loc[
                 (self.data["Age"].isnull())
-                & (self.data["Title_Grouped"] == title_group),
-                "Age",
+                & (self.data[title_grouped_column] == title_group),
+                new_feature[0],
             ] = median_age
 
-        return self
+        # 如果仍有缺失值（例如，某个 Title_Grouped 分组内所有 Age 值都是缺失的），用总体中位数填充
+        self.data[new_feature[0]] = self.data[new_feature[0]].fillna(
+            self.data["Age"].median()
+        )
+
+        return self.data, new_feature
 
 
 class DataPreprocessor:
     # 其他代码保持不变
 
     def preprocess(self):
-        AgeProcessor(self.data).fill_age_by_title_group() # 使用新方法
-
         # 其他代码保持不变
-        return self.data, new_columns
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_age_by_title_group()
+        self.features.extend(new_features_age)
+
+        return self.data, self.features
 ```
 
 值得说明的是：
 
 - 我们在 `AgeProcessor` 类中增加了一个新方法 `fill_age_by_title_group`，该方法实现一下目的：按不同头衔的年龄中位数来填充 `Age` 列中的对应的缺失值。
-- 我们适当修改了原始的 `DataProcessor` 类。主要是用 `fill_age_by_title_group` 方法替代了之前的 `fill_missing_values` 方法。
+- 我们适当修改了原始的 `DataProcessor` 类中的 `preprocess` 方法。主要是用 `fill_age_by_title_group` 方法替代了之前的 `fill_missing_values` 方法。
+- 考虑到我们需要先确认不同头衔，因此，针对 `Name` 特征构建了一个 `TitleProcessor` 类。在使用 `fill_age_by_title_group` 方法之前，我们先运用 `TitleProcessor` 类对数据进行了处理。
 - 由于我们只修改了 `data_preprocessing.py`, 训练模型不变，由此我们并不需要修改 `model.py` 以及 `main.py`。
 
 重新运行 `main.py`，可以得出相应的训练准确率的结果：
@@ -1309,32 +1341,19 @@ Model Accuracy (fill age by title group): 0.810056
 
 ```python
 # titanic/titian/evaluation.py
-import numpy as np
-import pandas as pd
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
-    roc_curve,
-    auc,
-)
-from sklearn.model_selection import cross_val_score
-
-import matplotlib.pyplot as plt
-
-plt.style.use(style="configs/matplotlib.mplstyle")
-
-
 class ModelEvaluator:
-    def __init__(self, model, X_test, y_test):
+    def __init__(self, model, X_test, y_test, results_file):
         self.model = model
         self.X_test = X_test
         self.y_test = y_test
+        self.results_file = results_file
+        if os.path.exists(self.results_file):
+            with open(self.results_file, "r") as f:
+                self.results = json.load(f)
+        else:
+            self.results = []
 
-    def evaluate(self, cv=5):
+    def calculate_metrics(self):
         y_pred = self.model.predict(self.X_test)
         y_proba = self.model.predict_proba(self.X_test)[:, 1]  # 获取正类的概率
 
@@ -1343,14 +1362,15 @@ class ModelEvaluator:
             "Precision": precision_score(self.y_test, y_pred, average="binary"),
             "Recall": recall_score(self.y_test, y_pred, average="binary"),
             "F1 Score": f1_score(self.y_test, y_pred, average="binary"),
-            "ROC AUC": roc_auc_score(self.y_test, y_proba),  # 计算ROC AUC
+            "ROC AUC": roc_auc_score(self.y_test, y_proba),
         }
+        return y_pred, y_proba, metrics
 
-        # 打印评估指标
+    def print_metrics(self, metrics):
         print("Evaluation Metrics:")
         print(pd.DataFrame([metrics], index=["Values"]))
 
-        # 打印混淆矩阵
+    def print_confusion_matrix(self, y_pred):
         conf_matrix = confusion_matrix(self.y_test, y_pred)
         print("\nConfusion Matrix:")
         print(
@@ -1361,7 +1381,7 @@ class ModelEvaluator:
             )
         )
 
-        # 交叉验证
+    def perform_cross_validation(self, cv):
         if cv > 1:
             cross_val_accuracy = np.mean(
                 cross_val_score(
@@ -1369,8 +1389,10 @@ class ModelEvaluator:
                 )
             )
             print(f"\nCross-validated Accuracy ({cv}-fold): {cross_val_accuracy:.6f}")
+            return cross_val_accuracy
+        return None
 
-        # 绘制ROC曲线
+    def plot_roc_curve(self, y_proba):
         fpr, tpr, _ = roc_curve(self.y_test, y_proba)
         roc_auc = auc(fpr, tpr)
 
@@ -1391,6 +1413,22 @@ class ModelEvaluator:
         plt.savefig("./fig/ROC.png", bbox_inches="tight")
         # plt.show()
 
+    def save_results(self, metrics):
+        try:
+            with open(self.results_file, "w") as f:
+                json.dump(self.results + [metrics], f)
+        except IOError as e:
+            print(f"Error saving results: {e}")
+
+    def evaluate(self, cv=5):
+        y_pred, y_proba, metrics = self.calculate_metrics()
+        self.print_metrics(metrics)
+        self.print_confusion_matrix(y_pred)
+        cv_score = self.perform_cross_validation(cv)
+        if cv_score is not None:
+            metrics["Cross-validated Accuracy"] = cv_score
+        self.plot_roc_curve(y_proba)
+        self.save_results(metrics)
         return metrics
 ```
 
@@ -1401,8 +1439,8 @@ class ModelEvaluator:
 ```python
 # titanic/titanic/main.py
 # 其他代码保持不变
-def train_and_evaluate_model(data, features, target):
-    model = BaseModel()
+def train_and_evaluate_model(data, features, target, results_file):
+    model = BaseModel(results_file=results_file)
     model.train(data[features], data[target])
     model.evaluate()
     return 1
@@ -1410,25 +1448,22 @@ def train_and_evaluate_model(data, features, target):
 
 def main():
     data_path = "./data/raw/train.csv"
-    data, new_feature_names = load_and_preprocess_data(data_path, columns=["Sex"])
-
-    features = [
-        "Pclass",
-        "Age",
-    ] + new_feature_names
-    print(features)
+    results_file = "./data/evaluation/evaluation_results.json"
+    processed_data, features = load_and_preprocess_data(data_path)
+    # print(features)
     target = "Survived"
 
-    train_and_evaluate_model(data, features, target)
+    train_and_evaluate_model(processed_data, features, target, results_file)
 
 # 其他代码保持不变
 ```
 
-现在，我们可以查看采用不同的缺失值处理策略后的模型训练评估结果：
+可能需要说明的是，为了模型训练过程的展示方便，在模型评估类中，添加了相关的保存训练结果的方法，因此，该文件中，我们给出了相应的参数，比如 `results_file`。该参数与本项目的实际训练过程无关。现在，我们可以查看采用不同的缺失值处理策略后的模型训练评估结果：
 
 对于采用 `Age` 列中位数填补的策略：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillMedian']
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
 Values  0.810056   0.794118  0.72973  0.760563  0.872008
@@ -1444,6 +1479,7 @@ Cross-validated Accuracy (5-fold): 0.827143
 对于采用 `Age` 列按头衔分类后的中位数填补的策略：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGrouped']
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
 Values  0.810056   0.794118  0.72973  0.760563  0.881982
@@ -1468,7 +1504,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 从左图可以发现，`Age` 数据似乎不是严格的正态分布，但也没有特别极端的偏斜。但是，右图中显示，存在少部分异常值。为此，我们需要一种更为稳健的标准化/归一化方法，以确保这些异常值不会对整体标准化结果产生过大影响。在此，我们计划采用 `RobustScaler` 来对 `Age` 进行处理。[`RobustScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.RobustScaler.html) 通过去除中位数并按四分位范围（IQR）缩放数据，可以降低异常值的影响力。
 
-现在，我们需要回到 `data_preprocessing.py` 文件，添加标准化/归一化的代码。显然，我们需要在已经填补上缺失值的数据上进行相关操作。由于前期我们构建了 `AgeProcessor` 类，并且支持链式操作，因此，我们只需要在 `DataPreprocessor` 中涉及到年龄处理的部分添加上一个标准化操作（假设有一个方法名为：`robust_scaling()`）就行。示例代码如下：
+现在，我们需要回到 `data_preprocessing.py` 文件，添加标准化/归一化的代码。显然，我们需要在已经填补上缺失值的数据上进行相关操作。由于前期我们构建了 `AgeProcessor` 类，因此，我们只需要在 `DataPreprocessor` 中涉及到年龄处理的部分添加上一个标准化操作（考虑到后期其他特征可能也需要标准化/归一化等数据转换操作，现在假设基类中有一个方法，名为：`scaling_robust`）就行。示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
@@ -1477,7 +1513,17 @@ from sklearn.preprocessing import RobustScaler
 class DataPreprocessor:
     # 其他代码保持不变
     def preprocess(self):
-        AgeProcessor(self.data).fill_age_by_title_group().robust_scaling()
+        # 其他代码保持不变
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_age_by_title_group()
+
+        base_processor = BaseProcessor(self.data)
+        self.data, new_features_age_robost = base_processor.scaling_robust(
+            new_features_age[0]
+        )
+        self.features.extend(new_features_age_robost)
 
         # 其他代码保持不变
         return self.data, new_columns
@@ -1491,24 +1537,17 @@ class BaseProcessor:
     def __init__(self, data):
         self.data = data
 
-    def robust_scaling(self, column):
+    def scaling_robust(self, column):
         scaler = RobustScaler()
-        self.data[column] = scaler.fit_transform(self.data[[column]])
-        return self
-
-
-class DataPreprocessor:
-    # 其他代码保持不变
-    def preprocess(self):
-        AgeProcessor(self.data).fill_age_by_title_group().robust_scaling("Age")
-
-        # 其他代码保持不变
-        return self.data, new_columns
+        column_name = column + "RobustScaler"
+        self.data[column_name] = scaler.fit_transform(self.data[[column]])
+        return self.data, [column_name]
 ```
 
 现在我们就可以直接运行 `main.py`，评估结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedRobustScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.881853
@@ -1524,6 +1563,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 与未标准化时的评估指标结果对比，我们发现，除了混淆矩阵和交叉验证的结果没有变化外，其他评估指标均有不同程度的降低。这好像不是我们所期望的。下面我们可以根据以上逻辑，试试其他的常用标准化方法是否对评估指标有所影响。例如，我们采用 `Min-Max` 的方式对 `Age` 特征进行标准化，其结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedMinMaxScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.793296   0.768116  0.716216  0.741259  0.879408
@@ -1538,6 +1578,7 @@ Cross-validated Accuracy (5-fold): 0.810317
 🤣，所有指标都降低了，看来 `Min-Max` 也不是一个好选择。选择 `Z-Score`，继续测试，结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler']
 Evaluation Metrics:
         Accuracy  Precision   Recall  F1 Score   ROC AUC
 Values  0.810056   0.794118  0.72973  0.760563  0.881853
@@ -1547,7 +1588,7 @@ Confusion Matrix:
 Actual Negative                  91                  14
 Actual Positive                  20                  54
 
-Cross-validated Accuracy (5-fold): 0.849365
+Cross-validated Accuracy (5-fold): 0.84936
 ```
 
 🤩，采用 `Z-Score` 后的结果居然和未标准化的一致。有些意外。逻辑回归模型似乎对 `Age` 特征的的标准化过程有较为敏感的返回。`Z-Score` 的评估结果优于其他两种方法的原因可能是由于 `Age` 特征在未标准化时已经相对集中，倾向于正态分布。而 `Z-Score` 恰恰适合于该类分布。虽然 `Z-Score` 并没有增强模型的能力，但似乎也没有什么坏处，考虑到后期我们可能会选择其他分类模型，<strong style="color:#c21d03">暂时保留 `Z-Score` 对 `Age` 特征的标准化</strong>。
@@ -1556,21 +1597,41 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 ### 第三次尝试（考虑 `SibSp` 和 `Parch` 特征)
 
-基于 EDA 分析，不同家庭成员数量似乎对生存率存在影响，因此，这里我们计划进一步将该因素融入到上面的模型中。先来看看分别考虑`SibSp` 和 `Parch` 特征会不会对模型训练效果产生影响。由于这两特征没有缺失值，我们可以暂时直接加入到特征中。这样，我们只需要将其添加到 `main.py` 的 `main` 函数中的 `feature`，如下：
+基于 EDA 分析，不同家庭成员数量似乎对生存率存在影响，因此，这里我们计划进一步将该因素融入到上面的模型中。先来看看分别考虑`SibSp` 和 `Parch` 特征会不会对模型训练效果产生影响。由于这两特征没有缺失值，我们可以暂时直接加入到特征中。为了保持代码的一致性，我们对 `SibSp` 和 `Parch` 特征分别构建两个处理类，示例代码如下：
 
 ```python
-# titanic/titanci/main.py
-def main():
-    # 其他代码保持不变
+# titanic/titanci/data.preprocessing.py
+class SibSpProcessor(BaseProcessor):
+    def sibsp_process(self):
+        new_feature = ["SibSp"]
+        return self.data, new_feature
 
-    features = ["Pclass", "Age", "SibSp"] + new_feature_names # 添加 "SibSp"
-    
-    # 其他代码保持不变
+
+class ParchProcessor(BaseProcessor):
+    def sibsp_process(self):
+        new_feature = ["Parch"]
+        return self.data, new_feature
+```
+
+然后，我们可以在 `DataPreprocessor` 的 `preprocess` 方法添加如下代码：
+
+```python
+# titanic/titanci/data.preprocessing.py
+class DataPreprocessor:
+    def preprocess(self):
+        # 其他代码保持不变
+
+        sibsp_processor = SibSpProcessor(self.data)
+        self.data, new_features_sibsp = sibsp_processor.sibsp_process()
+        self.features.extend(new_features_sibsp)
+
+        return self.data, self.features
 ```
 
 重新运行 `main.py`，可以得到如下结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.815642   0.797101  0.743243  0.769231  0.892342
@@ -1583,9 +1644,10 @@ Actual Positive                  19                  55
 Cross-validated Accuracy (5-fold): 0.866190
 ```
 
-同样，单独加入 `Parch` 的结果如下：
+同理，单独加入 `Parch` 的结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'Parch']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.798883   0.787879  0.702703  0.742857  0.883655
@@ -1601,6 +1663,7 @@ Cross-validated Accuracy (5-fold): 0.855079
 同时考虑 `SibSp` 和 `Parch` 特征的结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.821229   0.808824  0.743243  0.774648  0.893372
@@ -1623,7 +1686,7 @@ Cross-validated Accuracy (5-fold): 0.866190
 
 <hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
-由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加一个新类 `FamilySizeProcessor`。然后在 `DataPreprocessor` 中调用，其他保持不变就可以了，示例代码如下：
+由于 `SibSp` 和 `Parch` 特征都是表示家庭成员结构。因此，接下来，我们考虑下，是否将其组合成新的**家庭成员数量**特征，会对模型训练效果有所提升。由于我们需要构建新的特征，这就需要我们在 `data_preprocessing.py` 中添加一个新类 `FamilySizeProcessor`。然后在 `DataPreprocessor` 中实例化，其他保持不变就可以了，示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
@@ -1642,23 +1705,26 @@ class DataPreprocessor:
 
     def preprocess(self):
         # 其他代码保持不变
-        FamilySizeProcessor(self.data).process_family_size()
+
+        # sibsp_processor = SibSpProcessor(self.data)
+        # self.data, new_features_sibsp = sibsp_processor.sibsp_process()
+        # self.features.extend(new_features_sibsp)
+
+        # parch_processor = ParchProcessor(self.data)
+        # self.data, new_features_parch = parch_processor.parch_process()
+        # self.features.extend(new_features_parch)
+
+        family_processor = FamilySizeProcessor(self.data)
+        self.data, new_features_family = family_processor.family_size_process()
+        self.feature.extend(new_features_family)
         # 其他代码保持不变
         return self.data, new_columns
-```
-
-现在回到 `main.py` 中，将 `FamilySize` 纳入到 `features` 变量中， 如下：
-
-```python
-# titanic/titanic/main.py
-# 其他代码保持不变
-    features = ["Pclass", "Age", "FamilySize"] + new_feature_names
-# 其他代码保持不变
 ```
 
 重新运行 `main.py`，我们将得到如下结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySize']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.815642   0.815385  0.716216   0.76259  0.890541
@@ -1687,17 +1753,41 @@ Cross-validated Accuracy (5-fold): 0.855079
 # titanic/titanic/data_preprocessing.py
 # 其他代码保持不变
 class FamilySizeProcessor(BaseProcessor):
-    def process_family_size(self):
-        self.data["FamilySize"] = self.data["SibSp"] + self.data["Parch"] + 1
-        self.data["IsAlone"] = (self.data["FamilySize"] == 1).astype(int)
-        return self
+    # 其他代码保持不变
 
-# 其他代码保持不变
+    def is_alone_family(self):
+        new_feature = ["IsAlone"]
+        self.data[new_feature[0]] = (self.data["FamilySize"] == 1).astype(int)
+        return self.data, new_feature
+
+    def categorize_family_size(self):
+        new_feature = ["FamilySizeGroup"]
+        self.data[new_feature[0]] = pd.cut(
+            self.data["FamilySize"],
+            bins=[0, 1, 4, 11],
+            labels=["Solo", "SmallFamily", "LargeFamily"],
+        )
+        return self.data, new_feature
+
+
+class DataPreprocessor:
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+        family_processor = FamilySizeProcessor(self.data)
+        self.data, _ = family_processor.family_size_process()
+        self.data, new_feature_isalone = family_processor.is_alone_family()
+        self.features.extend(new_feature_isalone)
+
+        return self.data, self.features
 ```
+注意，以上处理中， `categorize_family_size` 方法只是将 `FamilySize` 分成了 `Solo`, `SmallFamily`, `LargeFamily`。这样的类别数据需要经过处理后才能输入到逻辑回归模型中。后续在处理时，我们可以采用处理 `Sex` 特征时的策略。
 
-在 `main` 函数中，用 `IsAlone` 的新变量代替之前的 `FamilySize`， 重新运行 `main.py` 得到二值化后的模型评估结果，如下：
+重新运行 `main.py` 得到二值化后的模型评估结果，如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'IsAlone']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.883012
@@ -1710,19 +1800,16 @@ Actual Positive                  21                  53
 Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-对于分段，我们可以继续在 `FamilySizeProcessor` 中添加相应的方法，示例代码如下：
+同理，对于分段，我们可以在以上基础上添加对 `FamilySize` 进行One-Hot编码，示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
 class FamilySizeProcessor(BaseProcessor):
-   # 其他代码保持不变
-    def categorize_family_size(self):
-        self.data["FamilySizeGroup"] = pd.cut(
-            self.data["FamilySize"],
-            bins=[0, 1, 4, 11],
-            labels=["Solo", "SmallFamily", "LargeFamily"],
-        )
-        return self
+    # 其他代码保持不变
+
+    def family_one_hot_encode(self):
+        self.data, new_features = super().one_hot_encode("FamilySizeGroup")
+        return self.data, new_features
 
 # 其他代码保持不变
 
@@ -1731,27 +1818,21 @@ class DataPreprocessor:
 
     def preprocess(self):
         # 其他代码保持不变
-        FamilySizeProcessor(self.data).process_family_size().categorize_family_size()
+        family_processor = FamilySizeProcessor(self.data)
+        self.data, _ = family_processor.family_size_process()
+        self.data, _ = family_processor.family_size_categorize()
+        self.data, new_features_family_one_hot = (
+            family_processor.family_one_hot_encode()
+        )
+        self.features.extend(new_features_family_one_hot)
         # 其他代码保持不变
-        return self.data, new_columns
-```
-
-注意，以上处理中， `categorize_family_size` 方法只是将 `FamilySize` 分成了 `Solo`, `SmallFamily`, `LargeFamily`。这样的类别数据需要经过处理后才能输入到逻辑回归模型中。还记得我们单独构建了一个 `CategoricalEncoder` 类吗，后续在处理时，我们可以采用处理 `Sex` 特征时的策略。示例代码如下：
-
-```python
-# titanic/titanic/main.py
-def main():
-    # 其他代码保持不变
-    data, new_feature_names = load_and_preprocess_data(
-        data_path, columns=["Sex", "FamilySizeGroup"]
-    )
-    features = ["Pclass", "Age"] + new_feature_names
-   # 其他代码保持不变
+        return self.data, self.features
 ```
 
 重新运行 `main.py` 得到分段后的模型评估结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySizeGroup_LargeFamily', 'FamilySizeGroup_SmallFamily', 'FamilySizeGroup_Solo']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.810056    0.80303  0.716216  0.757143  0.894788
@@ -1764,7 +1845,7 @@ Actual Positive                  21                  53
 Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-对于`FamilySize` 特征的标准化/归一化，由于前期在数据处理的基类中，我们已经构建了相应方法，在这，我们仍然可以复用前面的方法。如果在考虑 `FamilySizeGroup` 的代码基础上修改，那么我们需要只需要稍微修改 `DataPreprocessor` 类以及 `main` 函数中的相关代码就行。在进行标准化/归一化之前，我们先来分析下 `FamilySize` 特征的分布情况，如下：
+对于`FamilySize` 特征的标准化/归一化，由于前期在数据处理的基类中，我们已经构建了相应方法，在这，我们仍然可以复用前面的方法。。在进行标准化/归一化之前，我们先来分析下 `FamilySize` 特征的分布情况，如下：
 
 ![](/assets/images/ml/titanic_distribution_family_size.png)
 
@@ -1777,28 +1858,20 @@ class DataPreprocessor:
 
     def preprocess(self):
         # 其他代码保持不变
-        FamilySizeProcessor(self.data).process_family_size().scaling_robust("FamilySize")
-        # 其他代码保持不变
-        return self.data, new_columns
-```
+        family_processor = FamilySizeProcessor(self.data)
+        self.data, new_features_family = family_processor.family_size_process()
+        self.data, new_features_family_robust = base_processor.scaling_robust(
+            new_features_family[0]
+        )
+        self.features.extend(new_features_family_robust)
 
-同理，我们需要将标准化后的指标纳入到特征变量中，示例代码如下：
-
-```python
-# titanic/titanic/main.py
-def main():
-    # 其他代码保持不变
-    data, new_feature_names = load_and_preprocess_data(
-        data_path, columns=["Sex"]
-    )
-
-    features = ["Pclass", "Age", "FamilySize"] + new_feature_names
-    # 其他代码保持不变"
+        return self.data, self.features
 ```
 
 运行 `main.py`，得到 `FamilySize` 标准化后的评估结果，如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySizeRobustScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.815642   0.815385  0.716216   0.76259  0.890541
@@ -1816,6 +1889,7 @@ Cross-validated Accuracy (5-fold): 0.855079
 采用 Min-Max:
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySizeMinMaxScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.889511
@@ -1830,6 +1904,7 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 采用 Z-Score：
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySizeStandardScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.815642   0.815385  0.716216   0.76259  0.890541
@@ -1865,19 +1940,37 @@ Cross-validated Accuracy (5-fold): 0.855079
 # titanic/titanic/data_preprocessing.py
 # 其他代码保持不变
 class TicketProcessor(BaseProcessor):
-    def process_ticket(self):
-        self.data["TicketPrefix"] = self.data["Ticket"].apply(
+    def ticket_process(self):
+        new_feature = ["TicketPrefix"]
+        self.data[new_feature[0]] = self.data["Ticket"].apply(
             lambda x: (
                 "".join(filter(str.isalpha, x.split(" ")[0]))
                 if not x.isdigit()
                 else "None"
             )
         )
-        return self
+        return self.data, new_feature
+
+    def ticket_one_hot_encode(self, column):
+        self.data, new_feature = super().one_hot_encode(column)
+        return self.data, new_feature
 # 其他代码保持不变
+
+class DataPreprocessor:
+    # 其他代码保持不变
+
+    def preprocess(self):
+        # 其他代码保持不变
+
+        ticket_processor = TicketProcessor(self.data)
+        self.data, _ = ticket_processor.ticket_process()
+        self.data, new_features_ticket = ticket_processor.ticket_one_hot_encode("TicketPrefix")
+        self.features.extend(new_features_ticket)
+
+        return self.data, self.features
 ```
 
-以上处理逻辑是，如果有前缀，则提取其前缀，如果没有，则将其前缀命名为 `None`。对提取出的前缀进行 One-Hot 编码也很简单，可以借助于前期我们已经构建的 `CategoricalEncoder`。我们先在 `DataPreprocessor` 添加对票号的处理逻辑，然后在 `main` 函数中添加相关特征， 示例代码如下：
+以上处理逻辑是，如果有前缀，则提取其前缀，如果没有，则将其前缀命名为 `None`。对提取出的前缀进行 One-Hot 编码也很简单，仍然可以请参考 `Sex` 的处理，示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
@@ -1890,21 +1983,10 @@ class DataPreprocessor:
         return self.data, new_columns
 ```
 
-```python
-# titanic/titanic/main.py
-def main():
-    # 其他代码保持不变
-    data, new_feature_names = load_and_preprocess_data(
-        data_path, columns=["Sex", "TicketPrefix"]
-    )
-
-    features = ["Pclass", "Age", "SibSp", "Parch"] + new_feature_names
-    # 其他代码保持不变
-```
-
 重新运行 `main.py`，评估结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.826816   0.820896  0.743243  0.780142  0.888803
@@ -1917,7 +1999,7 @@ Actual Positive                  19                  55
 Cross-validated Accuracy (5-fold): 0.843810
 ```
 
-注意：由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。以上结果时将新生成了所有特征都纳入到前面的模型中的各个评估指标的结果：
+注意：由于对 `Ticket_Prefix` 进行了One-Hot编码，因此，增加了很多特征。以上结果是将新生成了所有特征都纳入到前面的模型中的各个评估指标的结果：
 
 对比不考虑票号前缀，可以注意到以下几点差异：
 1. **准确率(Accuracy)**: 考虑票号前缀的模型准确率略高于不考虑票号前缀的模型（0.826816 vs 0.821229）。这表明加入票号前缀特征后，模型在整体上能更准确地预测乘客的生存状态。
@@ -1942,7 +2024,7 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 降维是一个需要实验和评估的过程。我们可能需要尝试不同的降维方法和参数设置，然后根据模型的性能和复杂度来选择最适合咱们数据的方法。
 
-考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot 编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划在 `data_preprocessing.py` 中针对数据降维构建一个新的类。之所以这么处理，主要是从模块化的角度考虑。这样的设计不仅保持了代码的组织性和可读性，还提供了灵活性，允许我们在不同的处理级别上扩展或修改数据处理流程，而不会影响到基础类的结构。新的降维类示例代码如下：
+考虑到当前项目的特征，我们暂时选择前两种降维技术，对 `Ticket_Prefix` One-Hot 编码后的数据进行处理，并评估其对模型的影响。从代码组织上，我们计划在 `data_preprocessing.py` 中针对数据降维构建一个新的类。新的降维类示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
@@ -1999,66 +2081,34 @@ class DimensionalityReducer:
         return self.data, new_feature_names
 ```
 
-在添加了降维处理类后，我们还需要在 `DataPreprocessor` 调用该类，注意在使用降维类之前，应该将 `TicketPrefix` 先进行编码。示例代码如下
+在添加了降维处理类后，我们还需要在 `DataPreprocessor` 实例化该类，注意在使用降维类之前，应该将 `TicketPrefix` 先进行编码。示例代码如下
 
 ```python
 # titanic/titanic/data_preprocessing.py
 # 其他代码保持不变
 class DataPreprocessor:
-    def __init__(self, data):
-        self.data = data
+        # 其他代码保持不变
 
-    def preprocess(self):
-        AgeProcessor(self.data).fill_age_by_title_group().scaling_z_score("Age")
-        TicketProcessor(self.data).process_ticket()
-
-        encoder = CategoricalEncoder(self.data)
-        _, new_feature_names_sex = encoder.one_hot_encode(["Sex"])
-        _ = encoder.one_hot_encode(["TicketPrefix"])
-
+        ticket_processor = TicketProcessor(self.data)
+        self.data, _ = ticket_processor.ticket_process()
+        self.data, _ = ticket_processor.ticket_one_hot_encode()
         reducer = DimensionalityReducer(
-            self.data, method="PCA", n_components=0.95, random_state=42
+            self.data, method="PCA", n_components=0.95, random_state=None
         )
         self.data, new_feature_names_ticket_reduced = reducer.apply_reduction()
+        self.features.extend(new_feature_names_ticket_reduced)
 
-        # 合并所有新生成的特征名
-        new_feature_names = new_feature_names_sex + new_feature_names_ticket_reduced
-
-        return self.data, new_feature_names
-```
-
-这里的修改较多，除了添加相关新的处理以外，主要是去掉了 `DataPreprocessor` 实例化时需要传入的 `columns`。因此，我们还需要修改 `main.py` 中的相关代码，示例如下：
-
-```python
-# titanic/titanic/main.py
-def load_and_preprocess_data(data_path):
-    data = load_data(data_path)
-    processor = DataPreprocessor(data)
-    processed_data, new_feature_names = processor.preprocess()
-
-    return processed_data, new_feature_names
-
-# 其他代码保持不变
-
-def main():
-    data_path = "./data/raw/train.csv"
-    data, new_feature_names = load_and_preprocess_data(data_path)
-
-    features = ["Pclass", "Age", "SibSp", "Parch"] + new_feature_names
-    target = "Survived"
-
-    train_and_evaluate_model(data, features, target)
-
-# 其他代码保持不变
+        return self.data, self.features
 ```
 
 运行新的 `main.py`，得到如下结果：
 
 ```plaintext
-PCA reduced the TicketPrefix features to 15 components.
+PCA reduced the TicketPrefix_ features to 15 components.
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'PCA_TicketPrefix__1', 'PCA_TicketPrefix__2', 'PCA_TicketPrefix__3', 'PCA_TicketPrefix__4', 'PCA_TicketPrefix__5', 'PCA_TicketPrefix__6', 'PCA_TicketPrefix__7', 'PCA_TicketPrefix__8', 'PCA_TicketPrefix__9', 'PCA_TicketPrefix__10', 'PCA_TicketPrefix__11', 'PCA_TicketPrefix__12', 'PCA_TicketPrefix__13', 'PCA_TicketPrefix__14', 'PCA_TicketPrefix__15']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
-Values  0.826816   0.820896  0.743243  0.780142  0.887902
+Values  0.826816   0.820896  0.743243  0.780142  0.887773
 
 Confusion Matrix:
                  Predicted Negative  Predicted Positive
@@ -2081,7 +2131,8 @@ Cross-validated Accuracy (5-fold): 0.843810
 当设置 `n_components=16` 时，模型的评估指标如下：
 
 ```plaintext
-SVD reduced the TicketPrefix features to 16 components.
+SVD reduced the TicketPrefix_ features to 16 components.
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'SVD_TicketPrefix__1', 'SVD_TicketPrefix__2', 'SVD_TicketPrefix__3', 'SVD_TicketPrefix__4', 'SVD_TicketPrefix__5', 'SVD_TicketPrefix__6', 'SVD_TicketPrefix__7', 'SVD_TicketPrefix__8', 'SVD_TicketPrefix__9', 'SVD_TicketPrefix__10', 'SVD_TicketPrefix__11', 'SVD_TicketPrefix__12', 'SVD_TicketPrefix__13', 'SVD_TicketPrefix__14', 'SVD_TicketPrefix__15', 'SVD_TicketPrefix__16']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.826816   0.820896  0.743243  0.780142  0.888417
@@ -2097,7 +2148,8 @@ Cross-validated Accuracy (5-fold): 0.843810
 当 `n_components=5` 时，模型的评估指标如下：
 
 ```plaintext
-SVD reduced the TicketPrefix features to 5 components.
+SVD reduced the TicketPrefix_ features to 5 components.
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'SVD_TicketPrefix__1', 'SVD_TicketPrefix__2', 'SVD_TicketPrefix__3', 'SVD_TicketPrefix__4', 'SVD_TicketPrefix__5']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.832402   0.833333  0.743243  0.785714  0.883398
@@ -2147,47 +2199,50 @@ Cross-validated Accuracy (5-fold): 0.849365
 class TicketProcessor(BaseProcessor):
     # 其他代码保持不变
 
-    def categorize_ticket_prefix(self, threshold):
+    def categorize_ticket_prefix(self, threshold=0.85):
         prefix_freq = self.data["TicketPrefix"].value_counts(normalize=True)
         prefix_cumsum = prefix_freq.cumsum()
         common_prefixes = prefix_cumsum[prefix_cumsum <= threshold].index.tolist()
 
-        # 分类票号前缀，将 `None` 单独分类，其余按照是否在 common_prefix 分类
-        self.data["TicketPrefixCategorized"] = self.data["TicketPrefix"].apply(
+        new_feature = ["TicketPrefixCategorized"]
+        self.data[new_feature[0]] = self.data["TicketPrefix"].apply(
             lambda x: (
                 "None"
                 if x == "None"
                 else ("Common" if x in common_prefixes else "Rare")
             )
         )
-        return self
+        return self.data, new_feature
 ```
 
 按照如上构建，我们只需要再修改 `DataPreprocessor` 类，示例代码如下：
 
 ```python
 class DataPreprocessor:
-    def __init__(self, data):
-        self.data = data
+    # 其他代码保持不变
 
     def preprocess(self):
-        AgeProcessor(self.data).fill_age_by_title_group().scaling_z_score("Age")
-        TicketProcessor(self.data).process_ticket().categorize_ticket_prefix()
+        # 其他代码保持不变
 
-        encoder = CategoricalEncoder(self.data)
-        _, new_feature_names_sex = encoder.one_hot_encode(["Sex"])
-        _, new_feature_names_ticket_cate = encoder.one_hot_encode(
-            ["TicketPrefixCategorized"]
+        ticket_processor = TicketProcessor(self.data)
+        self.data, _ = ticket_processor.ticket_process()
+        self.data, _ = ticket_processor.categorize_ticket_prefix()
+        self.data, new_feature_ticket_freq_grouped = (
+            ticket_processor.ticket_one_hot_encode("TicketPrefixCategorized")
         )
+        # reducer = DimensionalityReducer(
+        #     self.data, method="SVD", n_components=5, random_state=42
+        # )
+        # self.data, new_feature_names_ticket_reduced = reducer.apply_reduction()
+        self.features.extend(new_feature_ticket_freq_grouped)
 
-        new_feature_names = new_feature_names_sex + new_feature_names_ticket_cate
-
-        return self.data, new_feature_names
+        return self.data, self.features
 ```
 
 重新运行 `main.py`，得到如下结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefixCategorized_Common', 'TicketPrefixCategorized_None', 'TicketPrefixCategorized_Rare']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.826816   0.820896  0.743243  0.780142  0.888031
@@ -2227,39 +2282,58 @@ class TicketProcessor(BaseProcessor):
     # 其他代码保持不变
 
     def categorize_ticket_prefix_using_title(self):
-        # 确保Title已经在数据中
         if "Title_Grouped" not in self.data.columns:
-            self.data = AgeProcessor(self.data).fill_age_by_title_group().data
+            self.data = TitleProcessor(self.data).extract_title().group_titles()
 
-        # 初始化列
-        self.data["TicketPrefixCategorized"] = "Others"
+        new_feature = ["TicketPrefixCategorized"]
+        self.data[new_feature[0]] = "Others"
 
-        # 对每个Title_Grouped类别，找出TicketPrefix的频率，并进行分类
         for title_group in self.data["Title_Grouped"].unique():
-            # 计算当前Title_Grouped下每个TicketPrefix的频率
             prefix_freq = self.data[self.data["Title_Grouped"] == title_group][
                 "TicketPrefix"
             ].value_counts(normalize=True)
-
-            # 设置阈值，前缀频率大于等于10%才分类为特定前缀，否则为'Others'
             threshold = 0.1
             significant_prefixes = prefix_freq[prefix_freq >= threshold].index.tolist()
 
-            # 对当前Title_Grouped下的每个TicketPrefix进行分类
             for prefix in significant_prefixes:
                 self.data.loc[
                     (self.data["Title_Grouped"] == title_group)
                     & (self.data["TicketPrefix"] == prefix),
-                    "TicketPrefixCategorized",
+                    new_feature[0],
                 ] = prefix
 
-        return self
+        # 将未分类的 "Others" 重新赋值，以确保所有的票据前缀都被分类
+        self.data[new_feature[0]] = self.data[new_feature[0]].where(
+            self.data[new_feature[0]] != "Others", other="Rare"
+        )
+
+        return self.data, new_feature
 # 其他代码保持不变
+
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+
+        ticket_processor = TicketProcessor(self.data)
+        self.data, _ = ticket_processor.ticket_process()
+        self.data, _ = ticket_processor.categorize_ticket_prefix_using_title()
+        self.data, new_feature_ticket_title = ticket_processor.ticket_one_hot_encode(
+            "TicketPrefixCategorized"
+        )
+        # reducer = DimensionalityReducer(
+        #     self.data, method="SVD", n_components=5, random_state=42
+        # )
+        # self.data, new_feature_names_ticket_reduced = reducer.apply_reduction()
+        self.features.extend(new_feature_ticket_title)
+
+        return self.data, self.features
 ```
 
 重新运行 `main.py`，评估结果如下：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefixCategorized_CA', 'TicketPrefixCategorized_None', 'TicketPrefixCategorized_PC', 'TicketPrefixCategorized_Rare']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.810056   0.785714  0.743243  0.763889  0.888546
@@ -2282,33 +2356,35 @@ Cross-validated Accuracy (5-fold): 0.843810
 
 ### 第五次尝试（考虑 `Fare` 特征）
 
-在此，我们继续进一步单独考虑 `Fare` 特征。 由于是数值型数据，该特征处理过程相对简单。由 EDA 分析可知， `Fare` 特征分布呈现出极度的右偏，表明大多数乘客支付的票价较低。这种情况下，我们至少需要对其进行数据转换。从代码角度上来说，也是比较简单的，由于我们前期在 `BaseProcessor` 基础类中已经构建了相关数据转换方法。由此，下面只需要在 `DataPreprocessor` 中添加对该特征的处理，以及将该特征包含在 `main` 函数中的 `feature` 变量中就成。示例代码如下：
+在此，我们继续进一步单独考虑 `Fare` 特征。 由于是数值型数据，该特征处理过程相对简单。由 EDA 分析可知， `Fare` 特征分布呈现出极度的右偏，表明大多数乘客支付的票价较低。这种情况下，我们至少需要对其进行数据转换。从代码角度上来说，也是比较简单的，由于我们前期在 `BaseProcessor` 基础类中已经构建了相关数据转换方法。由此，下面只需要在 `DataPreprocessor` 中添加对该特征的处理就成,示例代码如下：
 
 ```python
 # titanic/titanic/data_preprocessing.py
+class FareProcessor(BaseProcessor):
+    def fare_process(self):
+        new_feature = ["Fare"]
+        return self.data, new_feature
+
+
 class DataPreprocessor:
-    def __init__(self, data):
-        self.data = data
+    # 其他代码保持不变
 
     def preprocess(self):
         # 其他代码保持不变
-        BaseProcessor(self.data).scaling_robust("Fare") # 数据转换方法可以选择其他
-        # 其他代码保持不变
-        return self.data, new_feature_names
-```
 
-```python
-# titanic/titanic/main.py
-def main():
-    # 其他代码保持不变
-    features = ["Pclass", "Age", "SibSp", "Parch", "Fare"] + new_feature_names
-   # 其他代码保持不变
+        fare_processor = FareProcessor(self.data)
+        self.data, _ = fare_processor.fare_process()
+        self.data, new_features_fare = base_processor.scaling_robust("Fare")
+        self.features.extend(new_features_fare)
+
+        return self.data, self.features
 ```
 
 当选择不同数据转换方法时，重新运行 `main.py` 后的结果如下：
 
 经过 `RobustScaler` 转换后的结果：
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareRobustScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.896139
@@ -2324,6 +2400,7 @@ Cross-validated Accuracy (5-fold): 0.860635
 经过 `Min-Max` 转换后的结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.815642   0.797101  0.743243  0.769231  0.895882
@@ -2337,6 +2414,7 @@ Cross-validated Accuracy (5-fold): 0.866190
 ```
 经过 `Z-Score` 转换后的结果：
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareStandardScaler']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score   ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.896139
@@ -2352,6 +2430,7 @@ Cross-validated Accuracy (5-fold): 0.860635
 不经过转换时的评估结果：
 
 ```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'Fare']
 Evaluation Metrics:
         Accuracy  Precision    Recall  F1 Score  ROC AUC
 Values  0.804469   0.791045  0.716216  0.751773  0.89601
@@ -2366,8 +2445,8 @@ Cross-validated Accuracy (5-fold): 0.855079
 
 对比这些结果，我们可以注意到几个关键点：
 
-- **考虑 `Fare` 特征前后**：在考虑 `Fare` 特征之前的模型表现在多数指标上稍优于考虑 `Fare` 特征后的模型。准确率最高，而且 Cross-validated Accuracy 也较高。
-- **不同的 `Fare` 转换方法**：**RobustScaler** 和 **Z-Score** 转换后的结果相同，显示了相对较低的准确率和 Cross-validated Accuracy。**Min-Max** 转换提供了较好的准确率和 Cross-validated Accuracy，与不考虑 `Fare` 特征的模型表现相当。未经转换的 `Fare` 特征结果表现在准确率和 Cross-validated Accuracy 上略低于 **Min-Max** 转换和原始模型。
+- **考虑 `Fare` 特征前后**：在考虑 `Fare` 特征之前的模型表现在多数指标上稍优于考虑 `Fare` 特征后的模型。准确率最高，而且交叉验证的准确率也较高。
+- **不同的 `Fare` 转换方法**：**RobustScaler** 和 **Z-Score** 转换后的结果相同，显示了相对较低的准确率和交叉验证的准确率。**Min-Max** 转换提供了较好的准确率和交叉验证的准确率，与不考虑 `Fare` 特征的模型表现相当。未经转换的 `Fare` 特征结果表现在准确率和交叉验证的准确率上略低于 **Min-Max** 转换和原始模型。
 
 因此，在**考虑 `Fare` 特征**后，模型的表现在某些度量上略有下降，这可能表明 `Fare` 特征没有提供额外的有用信息，或者模型无法有效地利用这一信息。而在**特征转换的影响**上，特征的转换方法对模型的性能有明显的影响。在这种情况下，**Min-Max** 转换表现得最好，而 **RobustScaler** 和 **Z-Score** 转换没有带来预期的性能提升。<strong style="color:#c21d03"> 所以，我们大致可以得出，在逻辑回归模型下，如果要考虑 `Fare` 特征，应该采用 **Min-Max** 对原始数据进一步处理。</strong>
 
@@ -2375,7 +2454,133 @@ Cross-validated Accuracy (5-fold): 0.855079
 
 ### 第六次尝试（考虑 `Cabin` 特征）
 
+`Cabin` 特征的缺失值较多，占了约 80%。按照之前的分析，处理这类特征的策略可以多种多样，比如：
+
+1. **缺失值标记法**：可以创建一个新的特征来表示 `Cabin` 是否缺失。这种方法不会填补缺失值，而是将缺失的存在转化为一个信息特征，因为缺失本身可能就携带着一些信息。例如，`Cabin_Missing` 特征，它可以是 1（如果 `Cabin` 缺失）或 0（如果 `Cabin` 非缺失）。
+2. **填充缺失值**：如果决定填充缺失的 `Cabin` 数据，可以选择一种统一的填充方式，例如使用一个特殊字符或字符串，比如 "Unknown"。这样可以保留 `Cabin` 的信息，同时处理缺失值。
+3. **利用 `Cabin` 的首字母**：如果 `Cabin` 值不缺失，它通常以字母开头，这个字母可能表示船舱所在的甲板。因此，可以提取这个首字母作为一个新特征，用于模型训练。对于缺失值，同样可以用 "Unknown" 或其他特殊字符标记。
+4. **分组处理**：根据已有的 `Cabin` 数据，可以尝试将其分为不同的组别。比如，基于船舱号码的数字部分或首字母，将乘客分为不同的组。这可能需要一些对数据的了解和预处理工作。
+5. **丢弃特征**：如果经过探索性分析发现 `Cabin` 特征与生存情况关系不大，或者缺失值太多以至于填充或转换后的信息可信度不高，可以考虑直接丢弃这个特征。
+
+在处理完 `Cabin` 特征后，记得通过模型的交叉验证来检查特征处理的效果，选择最有助于提高模型性能的方法。`Cabin` 特征的以上部分处理策略的实现的示例代码如下：
+
+```python
+class CabinProcessor(BaseProcessor):
+    def add_missing_indicator(self):
+        new_feature = ["CabinMissing"]
+        self.data[new_feature[0]] = self.data["Cabin"].isnull().astype(int)
+        return self.data, new_feature
+
+    def fill_missing(self, fill_value="Unknown"):
+        new_feature = ["CabinMissingFill"]
+        self.data[new_feature[0]] = self.data["Cabin"].fillna(fill_value)
+        return self.data, new_feature
+
+    def extract_first_letter(self):
+        new_feature = ["CabinFirstLetter"]
+        self.data[new_feature[0]] = self.data["Cabin"].apply(
+            lambda x: x[0] if pd.notnull(x) else "U"
+        )
+        return self.data, new_feature
+```
+
+采用缺失值标记法的评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler', 'CabinMissing']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.821229   0.808824  0.743243  0.774648  0.896525
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  92                  13
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+采用填充缺失值（未经过降维处理）的评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler', 'CabinMissingFill_A10', 'CabinMissingFill_A14', 'CabinMissingFill_A16', 'CabinMissingFill_A19', 'CabinMissingFill_A20', 'CabinMissingFill_A23', 'CabinMissingFill_A24', 'CabinMissingFill_A26', 'CabinMissingFill_A31', 'CabinMissingFill_A32', 'CabinMissingFill_A34', 'CabinMissingFill_A36', 'CabinMissingFill_A5', 'CabinMissingFill_A6', 'CabinMissingFill_A7', 'CabinMissingFill_B101', 'CabinMissingFill_B102', 'CabinMissingFill_B18', 'CabinMissingFill_B19', 'CabinMissingFill_B20', 'CabinMissingFill_B22', 'CabinMissingFill_B28', 'CabinMissingFill_B3', 'CabinMissingFill_B30', 'CabinMissingFill_B35', 'CabinMissingFill_B37', 'CabinMissingFill_B38', 'CabinMissingFill_B39', 'CabinMissingFill_B4', 'CabinMissingFill_B41', 'CabinMissingFill_B42', 'CabinMissingFill_B49', 'CabinMissingFill_B5', 'CabinMissingFill_B50', 'CabinMissingFill_B51 B53 B55', 'CabinMissingFill_B57 B59 B63 B66', 'CabinMissingFill_B58 B60', 'CabinMissingFill_B69', 'CabinMissingFill_B71', 'CabinMissingFill_B73', 'CabinMissingFill_B77', 'CabinMissingFill_B78', 'CabinMissingFill_B79', 'CabinMissingFill_B80', 'CabinMissingFill_B82 B84', 'CabinMissingFill_B86', 'CabinMissingFill_B94', 'CabinMissingFill_B96 B98', 'CabinMissingFill_C101', 'CabinMissingFill_C103', 'CabinMissingFill_C104', 'CabinMissingFill_C106', 'CabinMissingFill_C110', 'CabinMissingFill_C111', 'CabinMissingFill_C118', 'CabinMissingFill_C123', 'CabinMissingFill_C124', 'CabinMissingFill_C125', 'CabinMissingFill_C126', 'CabinMissingFill_C128', 'CabinMissingFill_C148', 'CabinMissingFill_C2', 'CabinMissingFill_C22 C26', 'CabinMissingFill_C23 C25 C27', 'CabinMissingFill_C30', 'CabinMissingFill_C32', 'CabinMissingFill_C45', 'CabinMissingFill_C46', 'CabinMissingFill_C47', 'CabinMissingFill_C49', 'CabinMissingFill_C50', 'CabinMissingFill_C52', 'CabinMissingFill_C54', 'CabinMissingFill_C62 C64', 'CabinMissingFill_C65', 'CabinMissingFill_C68', 'CabinMissingFill_C7', 'CabinMissingFill_C70', 'CabinMissingFill_C78', 'CabinMissingFill_C82', 'CabinMissingFill_C83', 'CabinMissingFill_C85', 'CabinMissingFill_C86', 'CabinMissingFill_C87', 'CabinMissingFill_C90', 'CabinMissingFill_C91', 'CabinMissingFill_C92', 'CabinMissingFill_C93', 'CabinMissingFill_C95', 'CabinMissingFill_C99', 'CabinMissingFill_D', 'CabinMissingFill_D10 D12', 'CabinMissingFill_D11', 'CabinMissingFill_D15', 'CabinMissingFill_D17', 'CabinMissingFill_D19', 'CabinMissingFill_D20', 'CabinMissingFill_D21', 'CabinMissingFill_D26', 'CabinMissingFill_D28', 'CabinMissingFill_D30', 'CabinMissingFill_D33', 'CabinMissingFill_D35', 'CabinMissingFill_D36', 'CabinMissingFill_D37', 'CabinMissingFill_D45', 'CabinMissingFill_D46', 'CabinMissingFill_D47', 'CabinMissingFill_D48', 'CabinMissingFill_D49', 'CabinMissingFill_D50', 'CabinMissingFill_D56', 'CabinMissingFill_D6', 'CabinMissingFill_D7', 'CabinMissingFill_D9', 'CabinMissingFill_E10', 'CabinMissingFill_E101', 'CabinMissingFill_E12', 'CabinMissingFill_E121', 'CabinMissingFill_E17', 'CabinMissingFill_E24', 'CabinMissingFill_E25', 'CabinMissingFill_E31', 'CabinMissingFill_E33', 'CabinMissingFill_E34', 'CabinMissingFill_E36', 'CabinMissingFill_E38', 'CabinMissingFill_E40', 'CabinMissingFill_E44', 'CabinMissingFill_E46', 'CabinMissingFill_E49', 'CabinMissingFill_E50', 'CabinMissingFill_E58', 'CabinMissingFill_E63', 'CabinMissingFill_E67', 'CabinMissingFill_E68', 'CabinMissingFill_E77', 'CabinMissingFill_E8', 'CabinMissingFill_F E69', 'CabinMissingFill_F G63', 'CabinMissingFill_F G73', 'CabinMissingFill_F2', 'CabinMissingFill_F33', 'CabinMissingFill_F38', 'CabinMissingFill_F4', 'CabinMissingFill_G6', 'CabinMissingFill_T', 'CabinMissingFill_Unknown']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.797101  0.743243  0.769231  0.897426
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+采用填充缺失值（经过 PCA 降维处理）的评估结果如下：
+
+```plaintext
+PCA reduced the CabinMissingFill features to 129 components.
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler', 'PCA_CabinMissingFill_1', 'PCA_CabinMissingFill_2', 'PCA_CabinMissingFill_3', 'PCA_CabinMissingFill_4', 'PCA_CabinMissingFill_5', 'PCA_CabinMissingFill_6', 'PCA_CabinMissingFill_7', 'PCA_CabinMissingFill_8', 'PCA_CabinMissingFill_9', 'PCA_CabinMissingFill_10', 'PCA_CabinMissingFill_11', 'PCA_CabinMissingFill_12', 'PCA_CabinMissingFill_13', 'PCA_CabinMissingFill_14', 'PCA_CabinMissingFill_15', 'PCA_CabinMissingFill_16', 'PCA_CabinMissingFill_17', 'PCA_CabinMissingFill_18', 'PCA_CabinMissingFill_19', 'PCA_CabinMissingFill_20', 'PCA_CabinMissingFill_21', 'PCA_CabinMissingFill_22', 'PCA_CabinMissingFill_23', 'PCA_CabinMissingFill_24', 'PCA_CabinMissingFill_25', 'PCA_CabinMissingFill_26', 'PCA_CabinMissingFill_27', 'PCA_CabinMissingFill_28', 'PCA_CabinMissingFill_29', 'PCA_CabinMissingFill_30', 'PCA_CabinMissingFill_31', 'PCA_CabinMissingFill_32', 'PCA_CabinMissingFill_33', 'PCA_CabinMissingFill_34', 'PCA_CabinMissingFill_35', 'PCA_CabinMissingFill_36', 'PCA_CabinMissingFill_37', 'PCA_CabinMissingFill_38', 'PCA_CabinMissingFill_39', 'PCA_CabinMissingFill_40', 'PCA_CabinMissingFill_41', 'PCA_CabinMissingFill_42', 'PCA_CabinMissingFill_43', 'PCA_CabinMissingFill_44', 'PCA_CabinMissingFill_45', 'PCA_CabinMissingFill_46', 'PCA_CabinMissingFill_47', 'PCA_CabinMissingFill_48', 'PCA_CabinMissingFill_49', 'PCA_CabinMissingFill_50', 'PCA_CabinMissingFill_51', 'PCA_CabinMissingFill_52', 'PCA_CabinMissingFill_53', 'PCA_CabinMissingFill_54', 'PCA_CabinMissingFill_55', 'PCA_CabinMissingFill_56', 'PCA_CabinMissingFill_57', 'PCA_CabinMissingFill_58', 'PCA_CabinMissingFill_59', 'PCA_CabinMissingFill_60', 'PCA_CabinMissingFill_61', 'PCA_CabinMissingFill_62', 'PCA_CabinMissingFill_63', 'PCA_CabinMissingFill_64', 'PCA_CabinMissingFill_65', 'PCA_CabinMissingFill_66', 'PCA_CabinMissingFill_67', 'PCA_CabinMissingFill_68', 'PCA_CabinMissingFill_69', 'PCA_CabinMissingFill_70', 'PCA_CabinMissingFill_71', 'PCA_CabinMissingFill_72', 'PCA_CabinMissingFill_73', 'PCA_CabinMissingFill_74', 'PCA_CabinMissingFill_75', 'PCA_CabinMissingFill_76', 'PCA_CabinMissingFill_77', 'PCA_CabinMissingFill_78', 'PCA_CabinMissingFill_79', 'PCA_CabinMissingFill_80', 'PCA_CabinMissingFill_81', 'PCA_CabinMissingFill_82', 'PCA_CabinMissingFill_83', 'PCA_CabinMissingFill_84', 'PCA_CabinMissingFill_85', 'PCA_CabinMissingFill_86', 'PCA_CabinMissingFill_87', 'PCA_CabinMissingFill_88', 'PCA_CabinMissingFill_89', 'PCA_CabinMissingFill_90', 'PCA_CabinMissingFill_91', 'PCA_CabinMissingFill_92', 'PCA_CabinMissingFill_93', 'PCA_CabinMissingFill_94', 'PCA_CabinMissingFill_95', 'PCA_CabinMissingFill_96', 'PCA_CabinMissingFill_97', 'PCA_CabinMissingFill_98', 'PCA_CabinMissingFill_99', 'PCA_CabinMissingFill_100', 'PCA_CabinMissingFill_101', 'PCA_CabinMissingFill_102', 'PCA_CabinMissingFill_103', 'PCA_CabinMissingFill_104', 'PCA_CabinMissingFill_105', 'PCA_CabinMissingFill_106', 'PCA_CabinMissingFill_107', 'PCA_CabinMissingFill_108', 'PCA_CabinMissingFill_109', 'PCA_CabinMissingFill_110', 'PCA_CabinMissingFill_111', 'PCA_CabinMissingFill_112', 'PCA_CabinMissingFill_113', 'PCA_CabinMissingFill_114', 'PCA_CabinMissingFill_115', 'PCA_CabinMissingFill_116', 'PCA_CabinMissingFill_117', 'PCA_CabinMissingFill_118', 'PCA_CabinMissingFill_119', 'PCA_CabinMissingFill_120', 'PCA_CabinMissingFill_121', 'PCA_CabinMissingFill_122', 'PCA_CabinMissingFill_123', 'PCA_CabinMissingFill_124', 'PCA_CabinMissingFill_125', 'PCA_CabinMissingFill_126', 'PCA_CabinMissingFill_127', 'PCA_CabinMissingFill_128', 'PCA_CabinMissingFill_129']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score  ROC AUC
+Values  0.815642   0.797101  0.743243  0.769231  0.89704
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+利用 `Cabin` 的首字母 (未经过 PCA 降维处理)
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler', 'CabinFirstLetter_A', 'CabinFirstLetter_B', 'CabinFirstLetter_C', 'CabinFirstLetter_D', 'CabinFirstLetter_E', 'CabinFirstLetter_F', 'CabinFirstLetter_G', 'CabinFirstLetter_T', 'CabinFirstLetter_U']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.815642   0.797101  0.743243  0.769231  0.895624
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+利用 `Cabin` 的首字母 (经过 PCA 降维处理)
+
+```plaintext
+PCA reduced the CabinFirstLetter features to 6 components.
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'FareMinMaxScaler', 'PCA_CabinFirstLetter_1', 'PCA_CabinFirstLetter_2', 'PCA_CabinFirstLetter_3', 'PCA_CabinFirstLetter_4', 'PCA_CabinFirstLetter_5', 'PCA_CabinFirstLetter_6']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.821229   0.808824  0.743243  0.774648  0.896396
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  92                  13
+Actual Positive                  19                  55
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+比较不同处理 `Cabin` 特征策略下的逻辑回归模型评估指标结果，可以发现：
+
+1. **缺失值标记法** 和 **填充缺失值** 方法的模型在准确率、精确率、召回率、F1分数和ROC AUC方面的表现都相近，但缺失值标记法在准确率和 F1 分数上略有优势。
+2. **PCA降维** 处理后的模型与未进行降维处理的模型相比，在大多数评估指标上差异不大。这表明降维可能没有对模型的性能产生显著影响。
+3. **利用 `Cabin` 首字母** 的方法，在经过 PCA 降维处理后，模型在准确率和 F1 分数上略有提升，但整体表现与其他处理方法相比没有显著差异。
+4. 与**不考虑 `Cabin` 特征**的模型相比，考虑 `Cabin` 特征的模型在准确率和 ROC AUC 上有轻微的提升，但整体差异不显著。
+
+因此，<strong style="color:#c21d03">考虑 `Cabin` 特征确实对模型性能有一定的影响，尽管这种影响并不是非常显著。当考虑将其纳入模型，采用缺失值标记法或利用 `Cabin` 的首字母作为特征的策略可能比较合适。</strong>
+
 <hr/>
+
+### 第七次尝试（考虑 `Embarked` 特征）
+
+
+### 第八次尝试（考虑组合特征）
+
 ### 模型训练与评估流程图
 
 ![](/assets/images/ml/titianic_model_training_evaluation_workflow.svg)
