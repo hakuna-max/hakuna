@@ -2625,6 +2625,8 @@ Cross-validated Accuracy (5-fold): 0.843651
 
 到此，我们基本上对每一个特征进行了相关分析。但是，我们基本上是单独考虑各个特征。由前面的多变量分析可知，不同变量的组合对生存情况有组合效应。例如：虽然女性在所有等级的船舱中生存率都较高，但三等舱的女性乘客生存率与一等舱和二等舱相比有显著下降。这可能表明，尽管性别是一个强有力的生存预测因子，船舱等级也在生存机会中扮演了重要角色。因此，接下来，我们进一步根据多变量分析的启示，构建组合特征，并探讨其对基线模型的训练效果的影响。
 
+<hr/>
+
 ### 考虑组合特征
 
 特征之间的组合需要考虑数据类型特征。不同数据类型之间的组合需要选择不同的处理方式。下面简要介绍下常见的不同数据类型可以采用的组合策略。
@@ -2648,9 +2650,6 @@ Cross-validated Accuracy (5-fold): 0.843651
 # titanic/titanic/data_preprocessing.py
 # 其他代码保持不变
 class FeatureInteractionProcessor(BaseProcessor):
-    def __init__(self, data):
-        super().__init__(data)
-
     def add_interaction_feature(self, feature1, feature2, separator=""):
         new_feature_name = f"{feature1}{separator}{feature2}"
         self.data[new_feature_name] = (
