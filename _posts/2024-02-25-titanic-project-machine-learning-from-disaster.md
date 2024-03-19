@@ -1588,7 +1588,7 @@ Actual Positive                  20                  54
 Cross-validated Accuracy (5-fold): 0.84936
 ```
 
-🤩，采用 `Z-Score` 后的结果居然和未标准化的一致。有些意外。逻辑回归模型似乎对 `Age` 特征的的标准化过程有较为敏感的返回。`Z-Score` 的评估结果优于其他两种方法的原因可能是由于 `Age` 特征在未标准化时已经相对集中，倾向于正态分布。而 `Z-Score` 恰恰适合于该类分布。虽然 `Z-Score` 并没有增强模型的能力，但似乎也没有什么坏处，考虑到后期我们可能会选择其他分类模型，<strong style="color:#c21d03">暂时保留 `Z-Score` 对 `Age` 特征的标准化</strong>。
+🤩，采用 `Z-Score` 后的结果居然和未标准化的一致。有些意外。逻辑回归模型似乎对 `Age` 特征的的标准化过程有较为敏感的返回。`Z-Score` 的评估结果优于其他两种方法的原因可能是由于 `Age` 特征在未标准化时已经相对集中，倾向于正态分布。而 `Z-Score` 恰恰适合于该类分布。虽然 `Z-Score` 并没有增强模型的能力，但似乎也没有什么坏处，考虑到后期我们可能会选择其他分类模型，<strong style="color:#c21d03">暂时保留 `Z-Score` 对 `Age` 特征的标准化</strong>。<a id=basemodel>后续特征工程将以此为基准进行对比选择</a>
 
 <hr/>
 
@@ -2697,7 +2697,7 @@ Actual Positive                  23                  51
 Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-与采用 `Z-Score` 方式对 `Age` 进行处理后的基线模型评估结果对比，可以发现：
+与[采用 `Z-Score` 方式对 `Age`](#basemodel)进行处理后的基线模型评估结果对比，可以发现：
 
 1. **准确率 (Accuracy)**: 加入性别与船舱等级交互特征后，模型的准确率从0.810056提高到了0.821229。这表明在考虑了性别与船舱等级的相互作用之后，模型在整体上对数据的预测更加准确。
 2. **精确率 (Precision)**: 精确率从0.794118增加到了0.85。这意味着在预测乘客幸存的情况下，模型的错误率降低了，预测为正类（幸存）的乘客中，实际为正类的比例更高。
@@ -2764,12 +2764,108 @@ Cross-validated Accuracy (5-fold): 0.838254
 6. **混淆矩阵 (Confusion Matrix)**: 加入交互特征后，将幸存者预测为死亡的情况略微增加（从14增至15），将死亡者预测为死亡的情况略有下降（从91降至90）。
 7. **交叉验证准确率 (Cross-validated Accuracy)**: 加入交互特征后，交叉验证的准确率从0.84936降至0.838254，表明模型的泛化能力有所下降。
 
-整体上，加入 `Embarked` 和 `Pclass` 的交互特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能<strong style="color:#c21d03"> 表明 `Embarked` 和 `Pclass` 的交互特征并未为模型提供有用的信息，反而增加了模型的复杂度，导致性能略有下降。</strong>
+整体上，加入 `Embarked` 和 `Pclass` 的交互特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能<strong style="color:#c21d03">表明 `Embarked` 和 `Pclass` 的交互特征并未为模型提供有用的信息，反而增加了模型的复杂度，导致性能略有下降。</strong>
 
 <hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
 
+考虑**性别与头衔**之间的组合效应，该部分示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+
+        cate_interaction_processor = FeatureInteractionProcessor(self.data)
+        self.data, new_features_sex_title = (
+            cate_interaction_processor.add_interaction_feature("Sex", "Title_Grouped")
+        )
+        self.data, new_features_sex_title = base_processor.one_hot_encode(
+            new_features_sex_title[0]
+        )
+        self.features.extend(new_features_sex_title)
+
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SexTitle_Grouped_femaleMiss', 'SexTitle_Grouped_femaleMrs', 'SexTitle_Grouped_femaleRare', 'SexTitle_Grouped_maleMaster', 'SexTitle_Grouped_maleMr', 'SexTitle_Grouped_maleRare']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.798883   0.771429  0.72973      0.75  0.877928
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  89                  16
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.832698
+```
+
+同理，对比分析后可以得出结论：加入性别与头衔的组合特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能<strong style="color:#c21d03">表明性别与头衔的组合特征并未为模型提供额外的有用信息，反而增加了模型的复杂度，导致性能下降。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**票号前缀与船舱等级**之间的组合效应,，该部分示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        ticket_processor = TicketProcessor(self.data)
+        self.data, _ = ticket_processor.ticket_process()
+        self.data, new_feature_ticket_title = (
+            ticket_processor.categorize_ticket_prefix_using_title()
+        )
+
+        cate_interaction_processor = FeatureInteractionProcessor(self.data)
+        self.data, new_feature_ticket_pclass = (
+            cate_interaction_processor.add_interaction_feature(
+                new_feature_ticket_title[0], "Pclass"
+            )
+        )
+        self.data, new_feature_ticket_pclass = base_processor.one_hot_encode(
+            new_feature_ticket_pclass[0]
+        )
+        self.features.extend(new_feature_ticket_pclass)
+
+        return self.data, self.features
+```
+
+结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'TicketPrefixCategorizedPclass_CA2', 'TicketPrefixCategorizedPclass_CA3', 'TicketPrefixCategorizedPclass_None1', 'TicketPrefixCategorizedPclass_None2', 'TicketPrefixCategorizedPclass_None3', 'TicketPrefixCategorizedPclass_PC1', 'TicketPrefixCategorizedPclass_Rare1', 'TicketPrefixCategorizedPclass_Rare2', 'TicketPrefixCategorizedPclass_Rare3']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.804469   0.782609  0.72973  0.755245  0.881467
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  90                  15
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+同理，对比分析后可以得出结论：加入票号前缀与船舱等级的组合特征后，模型在准确率、精确率、F1分数上有所下降，而召回率保持不变，ROC AUC略有下降。这与考虑性别与头衔之间的组合效应时的效果一样，<strong style="color:#c21d03">表明该组合特征并未为模型提供额外的有用信息，反而增加了模型的复杂度，导致性能下降。</strong>
+
+<hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
+
+
+
 [^2]: 维度诅咒（curse of dimensionality），或者称为维度爆炸，维度灾难，是指随着数据集的特征数量增加，模型所需的数据量呈指数级增长的现象。在高维空间中，数据的表现和我们在低维空间直观感受到的性质有很大不同，这对数据分析和机器学习模型的建立和性能有着深远的影响。具体体现在以下几个方面：1) **空间稀疏性**：随着维度的增加，数据点在空间中越来越稀疏，大部分数据点都远离彼此。这意味着为了准确地学习数据间的关系，需要指数级别增长的数据量。2) **距离度量失效**：在高维空间中，常用的距离度量（如欧氏距离）变得不再有效。不同点之间的距离差异变得非常小，这使得基于距离的算法（如k-最近邻）性能下降。3) **模型过拟合**：随着特征数量的增加，模型复杂度增加，使得模型容易在训练数据上过拟合，即在训练集上表现很好，但在未见过的测试数据上表现不佳。4) **计算复杂性增加**：随着特征维度的增加，模型的计算复杂性也会增加，这不仅增加了训练模型所需的时间，也增加了存储和计算资源的需求。5) **降维困难**：虽然可以通过降维技术（如PCA、t-SNE）来减少特征的数量，但在极高维度下这些技术的效果可能会下降，而且降维本身也可能丢失一些重要信息。
 
+<hr>
 
 ### 模型训练与评估流程图
 
