@@ -2764,7 +2764,7 @@ Cross-validated Accuracy (5-fold): 0.838254
 6. **混淆矩阵 (Confusion Matrix)**: 加入交互特征后，将幸存者预测为死亡的情况略微增加（从14增至15），将死亡者预测为死亡的情况略有下降（从91降至90）。
 7. **交叉验证准确率 (Cross-validated Accuracy)**: 加入交互特征后，交叉验证的准确率从0.84936降至0.838254，表明模型的泛化能力有所下降。
 
-整体上，加入 `Embarked` 和 `Pclass` 的交互特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能表明<strong style="color:#c21d03">这些交互特征并未为模型提供有用的信息，反而增加了模型的复杂度，导致性能略有下降。</strong>
+整体上，加入 `Embarked` 和 `Pclass` 的交互特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能<strong style="color:#c21d03"> 表明 `Embarked` 和 `Pclass` 的交互特征并未为模型提供有用的信息，反而增加了模型的复杂度，导致性能略有下降。</strong>
 
 <hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
 
