@@ -2640,7 +2640,7 @@ Cross-validated Accuracy (5-fold): 0.843651
 
 <hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
-分析各个特征，该项目主要涉及到以下几类组合：类别型数据之间（如，性别和船舱等级、头衔与性别、登船港口与船舱等级、票号前缀与船舱等级等）；数值型与类别型数据之间（如，票价与船舱等级、头衔、性别与年龄、家庭规模与性别等）；数值型数据之间（如，兄弟姐妹和配偶的数量和父母和孩子的数量）。此外，还可以考虑家庭总数人与其他类别（如船舱等级）的组合，或者根据已创建的“是否独自一人与其他类别特征的组合。类似的，还可以将票价分成不同的区间，将其转换为类别型特征，再与其他特征进行组合。
+分析各个特征，该项目主要涉及到以下几类组合：类别型数据之间（如，性别和船舱等级、登船港口与船舱等级、性别与头衔、票号前缀与船舱等级等）；数值型与类别型数据之间（如，票价与船舱等级、头衔、性别与年龄、家庭规模与性别等）；数值型数据之间（如，兄弟姐妹和配偶的数量和父母和孩子的数量）。此外，还可以考虑家庭总数人与其他类别（如船舱等级）的组合，或者根据已创建的“是否独自一人与其他类别特征的组合。类似的，还可以将票价分成不同的区间，将其转换为类别型特征，再与其他特征进行组合。
 
 我们先来处理类别型数据之间的组合，这里我们选择简单的连接组合策略。在代码组织上，该种策略主要是将两个类别型特征的字符串连接起来，应该具有一定的通用性，因此，我们试着构建一个较为通用的方法，示例代码如下：
 
@@ -2698,7 +2698,7 @@ Actual Positive                  23                  51
 Cross-validated Accuracy (5-fold): 0.849365
 ```
 
-与采用 `Z-Score` 方式对 `Age` 进行处理后的基线模型评估结果对比，可以观察到以下几点：
+与采用 `Z-Score` 方式对 `Age` 进行处理后的基线模型评估结果对比，可以发现：
 
 1. **准确率 (Accuracy)**: 加入性别与船舱等级交互特征后，模型的准确率从0.810056提高到了0.821229。这表明在考虑了性别与船舱等级的相互作用之后，模型在整体上对数据的预测更加准确。
 2. **精确率 (Precision)**: 精确率从0.794118增加到了0.85。这意味着在预测乘客幸存的情况下，模型的错误率降低了，预测为正类（幸存）的乘客中，实际为正类的比例更高。
@@ -2709,6 +2709,65 @@ Cross-validated Accuracy (5-fold): 0.849365
 7. **交叉验证准确率 (Cross-validated Accuracy)**: 两种模型在交叉验证的准确率几乎相同，表明模型的稳定性和泛化能力相近。
 
 整体上，加入性别与船舱等级的交互特征后，模型在准确率、精确率、F1分数和ROC AUC上有所提升，但召回率略有下降。这表明<strong style="color:#c21d03">性别与船舱等级的交互特征有助于提高模型的整体预测性能，尤其是在确定乘客是否幸存的任务上更为精确，但同时可能略微牺牲了将所有实际幸存者识别出来的能力</strong>。
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**登船港口与船舱等级**之间的组合效应，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        embarked_processor = EmbarkedProcessor(self.data)
+        self.data, new_features_embarked = (
+            embarked_processor.fill_missing_with_most_common()
+        )
+
+        cate_interaction_processor = FeatureInteractionProcessor(self.data)
+        self.data, new_features_embarked_pclass = (
+            cate_interaction_processor.add_interaction_feature(
+                new_features_embarked[0], "Pclass"
+            )
+        )
+        self.data, new_features_embarked_pclass = base_processor.one_hot_encode(
+            new_features_embarked_pclass[0]
+        )
+        self.features.extend(new_features_embarked_pclass)
+
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'EmbarkedFillCommonPclass_C1', 'EmbarkedFillCommonPclass_C2', 'EmbarkedFillCommonPclass_C3', 'EmbarkedFillCommonPclass_Q1', 'EmbarkedFillCommonPclass_Q2', 'EmbarkedFillCommonPclass_Q3', 'EmbarkedFillCommonPclass_S1', 'EmbarkedFillCommonPclass_S2', 'EmbarkedFillCommonPclass_S3']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.804469   0.782609  0.72973  0.755245  0.881145
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  90                  15
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.838254
+```
+
+同理，对比发现：
+1. **准确率 (Accuracy)**: 在加入了与 `Embarked` 和 `Pclass` 相关的交互特征后，模型的准确率从0.810056下降到了0.804469。这表明在考虑了这些交互特征后，模型在整体上的预测准确度有所下降。
+2. **精确率 (Precision)**: 精确率从0.794118减少到了0.782609。这意味着在加入交互特征后，模型在预测乘客幸存的情况下，准确性有所降低。
+3. **召回率 (Recall)**: 召回率保持不变，仍然是0.72973。这表示在所有实际为正类的乘客中，模型正确识别的比例没有改变。
+4. **F1 分数 (F1 Score)**: F1分数从0.760563下降到了0.755245。F1分数是精确率和召回率的调和平均数，这里的下降表明在精确率和召回率之间的平衡略有下降。
+5. **ROC AUC**: 模型的ROC AUC从0.881853微降至0.881145，显示模型区分正负类的能力略有下降。
+6. **混淆矩阵 (Confusion Matrix)**: 加入交互特征后，将幸存者预测为死亡的情况略微增加（从14增至15），将死亡者预测为死亡的情况略有下降（从91降至90）。
+7. **交叉验证准确率 (Cross-validated Accuracy)**: 加入交互特征后，交叉验证的准确率从0.84936降至0.838254，表明模型的泛化能力有所下降。
+
+整体上，加入 `Embarked` 和 `Pclass` 的交互特征后，模型在多数性能指标上有所下降，尤其是在准确率、精确率、F1分数和交叉验证准确率上更为明显。这可能表明<strong style="color:#c21d03">这些交互特征并未为模型提供有用的信息，反而增加了模型的复杂度，导致性能略有下降。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
 
 [^2]: 维度诅咒（curse of dimensionality），或者称为维度爆炸，维度灾难，是指随着数据集的特征数量增加，模型所需的数据量呈指数级增长的现象。在高维空间中，数据的表现和我们在低维空间直观感受到的性质有很大不同，这对数据分析和机器学习模型的建立和性能有着深远的影响。具体体现在以下几个方面：1) **空间稀疏性**：随着维度的增加，数据点在空间中越来越稀疏，大部分数据点都远离彼此。这意味着为了准确地学习数据间的关系，需要指数级别增长的数据量。2) **距离度量失效**：在高维空间中，常用的距离度量（如欧氏距离）变得不再有效。不同点之间的距离差异变得非常小，这使得基于距离的算法（如k-最近邻）性能下降。3) **模型过拟合**：随着特征数量的增加，模型复杂度增加，使得模型容易在训练数据上过拟合，即在训练集上表现很好，但在未见过的测试数据上表现不佳。4) **计算复杂性增加**：随着特征维度的增加，模型的计算复杂性也会增加，这不仅增加了训练模型所需的时间，也增加了存储和计算资源的需求。5) **降维困难**：虽然可以通过降维技术（如PCA、t-SNE）来减少特征的数量，但在极高维度下这些技术的效果可能会下降，而且降维本身也可能丢失一些重要信息。
 
