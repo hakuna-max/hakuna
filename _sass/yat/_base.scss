@@ -38,19 +38,6 @@ body {
   text-align: justify;
 }
 
-.post-title {
-  text-align: start;
-}
-
-.footnotes {
-  font-size: 70%;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  background-color: #f9f9f9;
-  margin-top: 20px;
-}
-
 /**
  * Set `margin-bottom` to maintain vertical rhythm
  */
@@ -336,4 +323,26 @@ table {
 ::-webkit-selection {
   color: $selection-color;
   background-color: $selection-background-color;
+}
+
+/** 
+* personal settings 
+*/
+.post-title {
+  text-align: start;
+}
+
+.footnotes {
+  font-size: 70%;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  background-color: #f9f9f9;
+  margin-top: 20px;
+}
+
+.hr-subsection {
+  border-top: dashed #E7D1BB; 
+  border-bottom: none; 
+  background-color: transparent;
 }
