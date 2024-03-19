@@ -2630,7 +2630,7 @@ Cross-validated Accuracy (5-fold): 0.843651
 特征之间的组合需要考虑数据类型特征。不同数据类型之间的组合需要选择不同的处理方式。下面简要介绍下常见的不同数据类型可以采用的组合策略。
 
 1. **数值型与数值型组合**：这种数据类型处理起来比较简单，根据项目目的，可以采用加减乘除甚至是幂运算等常见的数学运算的方式。比如前期在构建 `FamilySize` 时，我们是将 `SibSp` 和 `Parch` 这两相关的特征进行了加和处理。
-2. **类别型与类别型组合**：该类数据常用的有两种策略，一种是连接组合，即将两个类别型特征的字符串值连接起来，形成新的类别；一种是交叉组合，即基于两个类别型特征的所有唯一值对生成新的特征，通常用于高维特征的生成，如在特征哈希或嵌入技术中。比如在对 `TicketPrefix` 进行分组。
+2. **类别型与类别型组合**：该类数据常用的有两种策略，一种是连接组合，即将两个类别型特征的字符串值连接起来，形成新的类别；一种是交叉组合，即基于两个类别型特征的所有唯一值对生成新的特征，通常用于高维特征的生成，如在特征哈希或嵌入技术中。
 3. **类别型与数值型组合**：该类数据常用的也有两种策略。一种是交互项组合，基于类别型特征的不同类别，为数值型特征生成不同的数值列；一种是分组统计，根据类别型特征的类别分组，计算数值型特征的统计量（如均值、中位数、标准差等）。其实我们在处理 `Age` 的缺失值时，也采用了这种策略。
 4. **时间型与数值型组合**：在遇到该种数据组合式，可以将时间型特征分解（如年、月、日、小时等），再与与数值型特征相结合，这种处理方式也叫时间分解处理；其次，我们可以计算两个时间点之间的间隔，再结合数值型特征，构建新特征，即时间间隔组合策略。
 5. **时间型与类别型组合**：遇到该种数据类型时，可以采用类似于**时间型与数值型组合**的处理方式，将时间型特征分解，再与类别型特征进行交叉组合。
@@ -2641,6 +2641,74 @@ Cross-validated Accuracy (5-fold): 0.843651
 <hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
 
 分析各个特征，该项目主要涉及到以下几类组合：类别型数据之间（如，性别和船舱等级、头衔与性别、登船港口与船舱等级、票号前缀与船舱等级等）；数值型与类别型数据之间（如，票价与船舱等级、头衔、性别与年龄、家庭规模与性别等）；数值型数据之间（如，兄弟姐妹和配偶的数量和父母和孩子的数量）。此外，还可以考虑家庭总数人与其他类别（如船舱等级）的组合，或者根据已创建的“是否独自一人与其他类别特征的组合。类似的，还可以将票价分成不同的区间，将其转换为类别型特征，再与其他特征进行组合。
+
+我们先来处理类别型数据之间的组合，这里我们选择简单的连接组合策略。在代码组织上，该种策略主要是将两个类别型特征的字符串连接起来，应该具有一定的通用性，因此，我们试着构建一个较为通用的方法，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class FeatureInteractionProcessor(BaseProcessor):
+    def __init__(self, data):
+        super().__init__(data)
+
+    def add_interaction_feature(self, feature1, feature2, separator=""):
+        new_feature_name = f"{feature1}{separator}{feature2}"
+        self.data[new_feature_name] = (
+            self.data[feature1].astype(str)
+            + separator
+            + self.data[feature2].astype(str)
+        )
+        return self.data, [new_feature_name]
+```
+
+由此，我们可以在 `DatPreprocessor` 类中添加对类别型特征的组合，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+# 其他代码保持不变
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        cate_interaction_processor = FeatureInteractionProcessor(self.data)
+        self.data, new_feature_sex_pclass = (
+            cate_interaction_processor.add_interaction_feature("Sex", "Pclass")
+        )
+        self.data, new_feature_sex_pclass = base_processor.one_hot_encode(
+            new_feature_sex_pclass[0]
+        )
+        self.features.extend(new_feature_sex_pclass)
+
+        return self.data, self.features
+```
+
+这里我们首先考虑了**性别与船舱等级**特征之间的组合。运行 `main.py` 得到如下结果：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.821229       0.85  0.689189  0.761194  0.890862
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  96                   9
+Actual Positive                  23                  51
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+与采用 `Z-Score` 方式对 `Age` 进行处理后的基线模型评估结果对比，可以观察到以下几点：
+
+1. **准确率 (Accuracy)**: 加入性别与船舱等级交互特征后，模型的准确率从0.810056提高到了0.821229。这表明在考虑了性别与船舱等级的相互作用之后，模型在整体上对数据的预测更加准确。
+2. **精确率 (Precision)**: 精确率从0.794118增加到了0.85。这意味着在预测乘客幸存的情况下，模型的错误率降低了，预测为正类（幸存）的乘客中，实际为正类的比例更高。
+3. **召回率 (Recall)**: 召回率略有下降，从0.72973降到0.689189。这表示在所有实际为正类的乘客中，被模型正确识别的比例略有降低。
+4. **F1 分数 (F1 Score)**: F1 分数从0.760563上升到0.761194，F1分数是精确率和召回率的调和平均，这里的轻微提高表明加入交互特征后，模型在精确率和召回率之间保持了较好的平衡。
+5. **ROC AUC**: 模型的 ROC AUC 从0.881853提高到了0.890862，表明模型区分正负类的能力有所提高。
+6. **混淆矩阵 (Confusion Matrix)**: 加入交互特征后，模型正确预测幸存者的数量有所减少（从54降到51），但同时，将幸存者错误预测为死亡的情况也减少了（从20降到23），且将死亡者正确预测为死亡的情况增加（从91增到96）。
+7. **交叉验证准确率 (Cross-validated Accuracy)**: 两种模型在交叉验证的准确率几乎相同，表明模型的稳定性和泛化能力相近。
+
+整体上，加入性别与船舱等级的交互特征后，模型在准确率、精确率、F1分数和ROC AUC上有所提升，但召回率略有下降。这表明<strong style="color:#c21d03">性别与船舱等级的交互特征有助于提高模型的整体预测性能，尤其是在确定乘客是否幸存的任务上更为精确，但同时可能略微牺牲了将所有实际幸存者识别出来的能力</strong>。
 
 [^2]: 维度诅咒（curse of dimensionality），或者称为维度爆炸，维度灾难，是指随着数据集的特征数量增加，模型所需的数据量呈指数级增长的现象。在高维空间中，数据的表现和我们在低维空间直观感受到的性质有很大不同，这对数据分析和机器学习模型的建立和性能有着深远的影响。具体体现在以下几个方面：1) **空间稀疏性**：随着维度的增加，数据点在空间中越来越稀疏，大部分数据点都远离彼此。这意味着为了准确地学习数据间的关系，需要指数级别增长的数据量。2) **距离度量失效**：在高维空间中，常用的距离度量（如欧氏距离）变得不再有效。不同点之间的距离差异变得非常小，这使得基于距离的算法（如k-最近邻）性能下降。3) **模型过拟合**：随着特征数量的增加，模型复杂度增加，使得模型容易在训练数据上过拟合，即在训练集上表现很好，但在未见过的测试数据上表现不佳。4) **计算复杂性增加**：随着特征维度的增加，模型的计算复杂性也会增加，这不仅增加了训练模型所需的时间，也增加了存储和计算资源的需求。5) **降维困难**：虽然可以通过降维技术（如PCA、t-SNE）来减少特征的数量，但在极高维度下这些技术的效果可能会下降，而且降维本身也可能丢失一些重要信息。
 
