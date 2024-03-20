@@ -21,10 +21,10 @@ dl, dd, ol, ul, figure {
  */
 body {
   font-family: "Source Serif SC", Helvetica, Arial, serif;
-  font-weight: $base-font-weight;
+  font-weight: 600;
   font-size: #{$base-font-size};
   font-display: swap;
-  line-height: #{$base-line-height};
+  line-height: 2;
   color: $text-color;
   background-color: $background-color;
   -webkit-text-size-adjust: 100%;
