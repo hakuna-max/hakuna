@@ -153,6 +153,7 @@ code {
   font-family: 'Source Code Pro', monospace;
   font-weight: 500;
   font-style: normal;
+  page-break-inside: auto;
 }
 
 *:not(pre) > code {
