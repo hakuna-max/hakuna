@@ -21,7 +21,7 @@ dl, dd, ol, ul, figure {
  */
 body {
   font-family: "Source Serif SC", Helvetica, Arial, serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: #{$base-font-size};
   font-display: swap;
   line-height: 2;
@@ -329,8 +329,8 @@ table {
   background-color: $selection-background-color;
 }
 
-/** 
-* personal settings 
+/**
+* personal settings
 */
 .post-title {
   text-align: start;
