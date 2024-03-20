@@ -342,3 +342,11 @@ table {
   background-color: #f9f9f9;
   margin-top: 20px;
 }
+
+@media print {
+  pre, code {
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: auto;
+  }
+}
