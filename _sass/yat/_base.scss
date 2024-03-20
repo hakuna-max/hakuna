@@ -163,15 +163,29 @@ code {
 }
 
 pre {
+  counter-reset: line-numbering;
   overflow-x: auto;
   position: relative;
   background-color: #f0f0f0;
 
   > code {
-    display: inline-block;
-    padding: 20px!important;
-    background-color: transparent;
-    border: 0;
+    display: block;
+    span {
+      position: relative;
+      display: block;
+      padding-left: 35px;
+
+      &:before {
+        counter-increment: line-numbering;
+        content: counter(line-numbering);
+        position: absolute;
+        left: 10px;
+        text-align: right;
+        width: 20px;
+        margin-right: 15px;
+        color:brown;
+      }
+    }
   }
 
   table, pre {
