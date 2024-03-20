@@ -15,7 +15,7 @@ sidebar: []
 
 [pyenv-win](https://github.com/pyenv-win/pyenv-win) 是 pyenv（一个流行的多版本 Python 管理工具）的 Windows 版本。它提供了一个简单而强大的解决方案，使开发者能够在同一个系统中安装、管理，并轻松切换多个 Python 版本。这一功能尤其对于同时进行多个项目，且每个项目需要不同 Python 版本的开发者来说，是极其有用的。pyenv-win 的引入，极大地简化了在 Windows 系统上管理多个 Python 版本的复杂度，从而使开发者能够专注于编码和项目构建，而非环境配置。
 
-[Poetry](https://python-poetry.org/)是一个创新的 Python 依赖管理和打包工具，它旨在通过一个统一的工具来简化和优化包的声明、依赖管理和包安装过程。Poetry 使用 `pyproject.toml` 文件来定义项目的依赖和配置，这一新颖的方法提供了比传统 `setup.py` 文件更清晰、更直观的依赖声明方式。此外，Poetry 自带的依赖解析器能够自动解决依赖冲突，确保项目依赖的一致性和项目的可重复构建。Poetry 的设计哲学是减少配置所需的努力，同时提升开发效率和项目的可维护性。
+[Poetry](https://python-poetry.org/)是一个 Python 依赖管理和打包工具。 Poetry 使用 `pyproject.toml` 文件来定义项目的依赖和配置，该方法提供了比传统 `setup.py` 文件更清晰、更直观的依赖声明方式。此外，Poetry 自带的依赖解析器能够自动解决依赖冲突，确保项目依赖的一致性和项目的可重复构建。
 
 ## 安装指南
 
