@@ -26,7 +26,7 @@ sidebar: []
   - [变量：`Cabin`](#变量cabin)
   - [变量：`Embarked`](#变量embarked)
   - [考虑组合特征](#考虑组合特征)
-  - [模型训练与评估流程图](#模型训练与评估流程图)
+  - [文件间的关系图及`data_preprocessing.py` 类图](#文件间的关系图及data_preprocessingpy-类图)
 
 <hr/>
 
@@ -2877,14 +2877,362 @@ Cross-validated Accuracy (5-fold): 0.849365
 以下是构建数值型与类别型数据组合特征的基本逻辑：
 
 1. **选择合适的特征进行组合**：分析数据集，确定哪些数值型和类别型特征之间可能存在相关性或相互作用，从而值得创建组合特征。例如，在该数据集中，可以考虑将票价（数值型）与船舱等级（类别型）组合，或将年龄（数值型）与头衔（类别型）组合。
-2. **组合特征的创建**：对于数值型和类别型特征的组合通过创建交互项构建新特征。例如，可以为每个船舱等级创建一个票价的变体，如 `Fare_Pclass_1`，`Fare_Pclass_2`等。这意味着根据船舱等级分别对票价进行分组，并在相应的新特征中填充该分组内的票价值。
+2. **组合特征的创建**：对于数值型和类别型特征的组合通过创建交互项构建新特征。例如，可以为每个船舱等级创建一个票价的变体，如 `Fare_Pclass_1`，`Fare_Pclass_2` 等。这意味着根据船舱等级分别对票价进行分组，并在相应的新特征中填充该分组内的票价值。
 3. **数值特征的变换**：有时，直接使用数值型数据可能不是最佳选择，可以考虑对数值型特征进行某些变换（例如，取对数、分箱等）以增强其与类别型特征的组合效果。
 4. **类别特征的编码**：在组合特征之前，需要确保类别型特征已经适当编码（如独热编码、标签编码等），这样才能在数值运算中使用它们。
 5. **评估组合特征的效果**：添加组合特征后，应该评估这些新特征对模型性能的影响，判断它们是否真的提供了额外的价值。
 
-在代码层面，可以创建一个新的处理器类来实现这些逻辑。
+在代码层面，可以创建一个新的处理器类来实现这些逻辑，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+from pandas.api.types import is_numeric_dtype
+# 其他代码保持不变
+class NumerCateInteractionProcessor(BaseProcessor):
+    def create_interaction_features(self, numerical_feature, categorical_feature_base):
+        # 找到所有与 categorical_feature_base 相关的已编码特征
+        categorical_features = [
+            col
+            for col in self.data.columns
+            if col.startswith(categorical_feature_base + "_")
+        ]
+
+        # 如果没有找到已编码的特征，抛出异常
+        if not categorical_features:
+            raise ValueError(
+                f"{categorical_feature_base} has not been one-hot encoded or does not exist."
+            )
+
+        new_features = []
+
+        for cat_feature in categorical_features:
+            # 新特征名称包含数值特征名称和类别特征名称
+            new_feature_name = f"{numerical_feature}{cat_feature}"
+            # 创建交互特征
+            self.data[new_feature_name] = (
+                self.data[numerical_feature] * self.data[cat_feature]
+            )
+            new_features.append(new_feature_name)
+
+        return self.data, new_features
+```
 
 <hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+现在，我们试着**组合 `Fare` 和 `Pclass` 特征**，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, _ = base_processor.one_hot_encode("Pclass") # 注意，在将 Pclass 特征与 Fare 特征组合前，应先将其编码
+        self.data, new_feature_pclass_fare = (
+            numer_cate_interaction_processor.create_interaction_features(
+                "Fare", "Pclass"
+            )
+        )
+        self.features.extend(new_feature_pclass_fare)
+        return self.data, self.features
+```
+
+经过组合后的数据前五行如下：
+
+```plaintext
+   Pclass  Sex_female  Sex_male  AgeFillTitleGroupedStandardScaler  FarePclass_1  FarePclass_2  FarePclass_3
+0       3         0.0       1.0                          -0.557365        0.0000           0.0         7.250
+1       1         1.0       0.0                           0.649713       71.2833           0.0         0.000
+2       3         1.0       0.0                          -0.255596        0.0000           0.0         7.925
+3       1         1.0       0.0                           0.423386       53.1000           0.0         0.000
+4       3         0.0       1.0                           0.423386        0.0000           0.0         8.050
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FarePclass_1', 'FarePclass_2', 'FarePclass_3']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.798883   0.787879  0.702703  0.742857  0.879794
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  91                  14
+Actual Positive                  22                  52
+
+Cross-validated Accuracy (5-fold): 0.832698
+```
+
+与[采用 `Z-Score` 方式对 `Age`](#basemodel)进行处理后的基线模型评估结果对比，可以看出在添加基于 `Fare` 和 `Pclass` 的组合特征后，模型的各项评估指标均有所下降。这<strong style="color:#c21d03">可能意味着这种特定的组合特征并没有为模型提供额外的有价值信息，反而可能引入了一些噪声，从而影响了模型的表现。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**年龄 `Age` 与头衔 `Title` 特征**的组合，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_age_by_title_group()
+        base_processor = BaseProcessor(self.data)
+        self.data, new_features_age_robust = base_processor.scaling_z_score(
+            new_features_age[0]
+        )
+
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, _ = base_processor.one_hot_encode("Title_Grouped")
+        self.data, new_features_title_grouped_age = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_age_robust[0], "Title_Grouped"
+            )
+        )
+        self.features.extend(new_features_title_grouped_age)
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'AgeFillTitleGroupedStandardScalerTitle_Grouped_Master', 'AgeFillTitleGroupedStandardScalerTitle_Grouped_Miss', 'AgeFillTitleGroupedStandardScalerTitle_Grouped_Mr', 'AgeFillTitleGroupedStandardScalerTitle_Grouped_Mrs', 'AgeFillTitleGroupedStandardScalerTitle_Grouped_Rare']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.793296   0.760563  0.72973  0.744828  0.873423
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  88                  17
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.832698
+```
+
+同理，<strong style="color:#c21d03">添加该组合特征后并没有为模型提供额外的有价值信息，可能引入了一些噪声，从而影响了模型的表现。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**年龄 `Age` 与 `Pclass` 特征**之间的组合，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_age_by_title_group()
+        base_processor = BaseProcessor(self.data)
+        self.data, new_features_age_robust = base_processor.scaling_z_score(
+            new_features_age[0]
+        )
+
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, new_features_age_pclass = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_age_robust[0], "Pclass"
+            )
+        )
+
+        self.features.extend(new_features_age_pclass)
+
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'AgeFillTitleGroupedStandardScalerPclass_1', 'AgeFillTitleGroupedStandardScalerPclass_2', 'AgeFillTitleGroupedStandardScalerPclass_3']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.798883   0.771429  0.72973      0.75  0.883655
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  89                  16
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+同理，<strong style="color:#c21d03">添加该组合特征后并没有为模型提供额外的有价值信息，可能引入了一些噪声，从而影响了模型的表现。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**年龄 `Age` 与 `Sex` 特征**之间的组合，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        sex_processor = SexProcessor(self.data)
+        self.data, new_features_sex = sex_processor.sex_one_hot_encode()
+        self.features.extend(new_features_sex)
+
+        title_processor = TitleProcessor(self.data)
+        self.data = title_processor.extract_title().group_titles()
+        age_processor = AgeProcessor(self.data)
+        self.data, new_features_age = age_processor.fill_age_by_title_group()
+        base_processor = BaseProcessor(self.data)
+        self.data, new_features_age_robust = base_processor.scaling_z_score(
+            new_features_age[0]
+        )
+
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, new_features_age_sex = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_age_robust[0], "Sex"
+            )
+        )
+
+        self.features.extend(new_features_age_sex)
+
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score   ROC AUC
+Values  0.798883   0.756757  0.756757  0.756757  0.870528
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  87                  18
+Actual Positive                  18                  56
+
+Cross-validated Accuracy (5-fold): 0.849365
+```
+
+同理，对比发现，当引入基于 `Age` 和 `Sex` 的组合特征后，模型的准确率、精确率、F1 分数和 ROC AUC 都有所下降，但召回率有所提升。这表明，尽管这种特征组合可能有助于模型正确识别更多的正样本（提高召回率），但同时也增加了模型将负样本错误分类为正样本的情况（降低精确率）。这次的模型评估提示，特征工程的目标不仅是提升模型的整体准确性，还需要考虑如何平衡不同评估指标之间的权重，根据实际应用场景决定哪些指标更为重要。对于 `Age` 与 `Sex` 的特征组合，<strong style="color:#c21d03">虽然提高了召回率，但综合性能评估指标的下降提示我们需要更谨慎地考虑是否采用该组合特征。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑**家庭规模 `FamilySize` 与性别 `Sex` 特征**之间的组合，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        sex_processor = SexProcessor(self.data)
+        self.data, new_features_sex = sex_processor.sex_one_hot_encode()
+        self.features.extend(new_features_sex)
+
+        family_processor = FamilySizeProcessor(self.data)
+        self.data, new_features_family = family_processor.family_size_process()
+        self.data, new_features_family_robust = base_processor.scaling_z_score(
+            new_features_family[0]
+        )
+
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, new_features_familysize_sex = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_family_robust[0], "Sex"
+            )
+        )
+
+        self.features.extend(new_features_familysize_sex)
+
+        return self.data, self.features
+```
+
+评估结果如下：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male']
+Evaluation Metrics:
+        Accuracy  Precision    Recall  F1 Score  ROC AUC
+Values  0.815642   0.815385  0.716216   0.76259  0.88758
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.85492
+```
+
+同理，对比发现，引入家庭规模和性别的组合特征后，模型在准确率、精确率、F1 分数和 ROC AUC 上均有所提升，但召回率有所下降。这意味着该特征组合改善了模型总体的预测准确性，尤其是在判断正类（生存）时的精确度。然而，召回率的下降表明模型在识别出所有实际正类（生存）方面略有减弱。此次模型评估表明，<strong style="color:#c21d03">`FamilySize` 与 `Sex` 的特征组合有助于提高模型的整体性能，特别是在准确性和预测正类的精确度方面。根据实际应用场景，这种特征组合可能是有益的，尤其是当模型的准确度和精确率比召回率更为重要时。这种情况下，我们可能会选择采用这种特征组合来优化模型的性能。</strong>
+
+<hr style="border-top: dashed #8fbf9f; border-bottom: none; background-color: transparent"/>
+
+考虑到前期发现仅单独考虑 `SibSp`, `Parch` 时，逻辑回归模型训练效果较好，这里我们也可以在此基础上，我们也可以考虑构建  `SibSp`, `Parch` 与 `Sex` 的组合特征，检查其对逻辑回归模型训练效果的影响，示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class DataPreprocessor:
+    # 其他代码保持不变
+    def preprocess(self):
+        # 其他代码保持不变
+        sex_processor = SexProcessor(self.data)
+        self.data, new_features_sex = sex_processor.sex_one_hot_encode()
+        self.features.extend(new_features_sex)
+
+        sibsp_processor = SibSpProcessor(self.data)
+        self.data, new_features_sibsp = sibsp_processor.sibsp_process()
+        self.features.extend(new_features_sibsp)
+
+        parch_processor = ParchProcessor(self.data)
+        self.data, new_features_parch = parch_processor.parch_process()
+        self.features.extend(new_features_parch)
+
+        numer_cate_interaction_processor = NumerCateInteractionProcessor(self.data)
+        self.data, new_features_sibsp_sex = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_sibsp[0], "Sex"
+            )
+        )
+        self.features.extend(new_features_sibsp_sex)
+
+        self.data, new_features_parch_sex = (
+            numer_cate_interaction_processor.create_interaction_features(
+                new_features_parch[0], "Sex"
+            )
+        )
+        self.features.extend(new_features_parch_sex)
+
+        return self.data, self.features
+```
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
+Evaluation Metrics:
+        Accuracy  Precision   Recall  F1 Score   ROC AUC
+Values  0.821229   0.818182  0.72973  0.771429  0.893887
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  93                  12
+Actual Positive                  20                  54
+
+Cross-validated Accuracy (5-fold): 0.855079
+```
+
+同理，对比发现，加入 `SibSp`, `Parch` 与 `Sex` 的组合特征后，模型的准确率、精确率、F1 分数和 ROC AUC 都有所提升，但召回率略有下降。这表明组合特征增强了模型的预测能力，特别是在准确度和预测正类的精确度方面。当比较仅考虑 `SibSp` 与 `Parch` 但不考虑与 `Sex` 的组合时，我们可以看到加入性别组合后，模型在准确度、精确度和 ROC AUC 上略有提升，但召回率和 F1 分数略有下降。交叉验证准确率略有降低，可能是由于模型变得更复杂，可能存在过拟合的风险。综上，<strong style="color:#c21d03">添加 `SibSp`, `Parch` 与 `Sex` 的组合特征能提高模型的预测性能，但同时也需要注意避免过拟合，特别是当模型的复杂度增加时。</strong>
+
+关于数值型与类别型数据的组合特征构建暂时分析到此，同学们可以继续按照这样的逻辑，试着构建其他的具有一定意义的组合特征。此外，关于数值型之间的组合特征，其实我们已经构建了家庭成员特征，并对其进行了分析。对于其他的数值型之间的组合特征，留给同学们尝试。
+
+<hr/>
+
+### 文件间的关系图及`data_preprocessing.py` 类图
+特征工程的工作暂时告一段落。下面我们将基于以上特征工程的结果，对分类模型进一步优化。特征工程过程中数据处理部分构建的各个类，以及各个文件间的关系如下图所示，在查看原始代码的过程中，可以参考。
+
+![](/assets/images/ml/titianic_main_import_diagram.svg)
+
+![](/assets/images/ml/titianic_data_preprocessing_class_diagram.svg)
 
 
 
@@ -2892,7 +3240,5 @@ Cross-validated Accuracy (5-fold): 0.849365
 
 <hr>
 
-### 模型训练与评估流程图
 
-![](/assets/images/ml/titianic_model_training_evaluation_workflow.svg)
 
