@@ -3256,3 +3256,28 @@ Cross-validated Accuracy (5-fold): 0.855079
 通过上述策略，我们不仅能够深入了解数据和模型的内在机制，还能够逐步推进模型的性能，让它在预测任务上达到更高的准确性和鲁棒性。
 
 <hr style="border-top: dashed #E7D1BB; border-bottom: none; background-color: transparent"/>
+
+在考虑挑选特征之前，我们可以将特征工程中对逻辑回归模型有正向影响所有特征纳入模型中，看看效果如何[^3]：
+
+```plaintext
+Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP', 'FareStandardScaler', 'CabinMissing', 'EmbarkedFillCommon_C', 'EmbarkedFillCommon_Q', 'EmbarkedFillCommon_S', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
+Evaluation Metrics:
+        Accuracy Precision    Recall  F1 Score   ROC AUC
+Values  0.815642  0.825397  0.702703  0.759124  0.882625
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  94                  11
+Actual Positive                  22                  52
+
+Cross-validated Accuracy (5-fold): 0.866032
+```
+
+😂，效果不尽如人意。
+
+与[考虑 `Pclass`, `Sex_female`, `Sex_male`, `AgeFillTitleGroupedStandardScaler` 特征](#basemodel)时的结果比较，各个指标只是有了些许的提升。但是，当可视化了逐步添加特征时的逻辑回归模型的评估指标结果（如下图所示），我们也发现，有的指标会导致评估指标下降，意味着，添加了这些指标后，逻辑回归模型的性能有所下降。但也发现，有的指标会增强逻辑回归模型的性能。由此，我们可能需要进一步考虑特征选择的问题。
+
+![](/assets/images/ml/titanic_metrics_over_training_sessions.png)
+
+[^3]: 需要说明的是，在这个过程中，为了使用方便，我们重构了 `DataPreprocessor` 类，同时对各个特征的数据处理类也进行了适当修改。具体可以参考原始代码。重构的整体逻辑是将每个特征处理流程分解成独立的方法，使 `preprocess` 方法更为简洁、易于理解和维护。在这过程中，我们创建了一个列表来存储所有特征的处理器的实例和相应的处理方法，然后通过遍历，动态调用处理方法。这种处理方式，使扩展新特征列表较为容易。
+
