@@ -3260,7 +3260,7 @@ Cross-validated Accuracy (5-fold): 0.855079
 在考虑挑选特征之前，我们可以将特征工程中对逻辑回归模型有正向影响所有特征纳入模型中，看看效果如何[^3]：
 
 ```plaintext
-Features considered in the model: ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP', 'FareStandardScaler', 'CabinMissing', 'EmbarkedFillCommon_C', 'EmbarkedFillCommon_Q', 'EmbarkedFillCommon_S', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
+Features considered in the model (54 features in total): ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP', 'FareStandardScaler', 'CabinMissing', 'EmbarkedFillCommon_C', 'EmbarkedFillCommon_Q', 'EmbarkedFillCommon_S', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
 Evaluation Metrics:
         Accuracy Precision    Recall  F1 Score   ROC AUC
 Values  0.815642  0.825397  0.702703  0.759124  0.882625
@@ -3275,9 +3275,20 @@ Cross-validated Accuracy (5-fold): 0.866032
 
 😂，效果不尽如人意。
 
-与[考虑 `Pclass`, `Sex_female`, `Sex_male`, `AgeFillTitleGroupedStandardScaler` 特征](#basemodel)时的结果比较，各个指标只是有了些许的提升。但是，当可视化了逐步添加特征时的逻辑回归模型的评估指标结果（如下图所示），我们也发现，有的指标会导致评估指标下降，意味着，添加了这些指标后，逻辑回归模型的性能有所下降。但也发现，有的指标会增强逻辑回归模型的性能。由此，我们可能需要进一步考虑特征选择的问题。
+与[考虑 `Pclass`, `Sex_female`, `Sex_male`, `AgeFillTitleGroupedStandardScaler` 特征](#basemodel)时的结果比较，各个指标只是有了些许的提升。但是，当可视化了逐步添加特征时的逻辑回归模型的评估指标结果（如下图所示），我们也发现，有的指标会导致评估指标下降，意味着，添加了这些指标后，可能引入了噪声，导致逻辑回归模型的性能有所下降。但也发现，有的指标会增强逻辑回归模型的性能。由此，我们可能需要进一步考虑特征选择的问题。
+
+特征选择可以帮助咱们识别和保留最有用的特征，同时去除那些无用或冗余的特征。以下是一些常用的特征选择方法和策略：
+1. **Filter方法**：这类方法在预处理阶段就对特征进行评分，根据评分进行特征选择。它们通常考虑的是特征与目标变量之间的关系，比如使用相关系数、卡方检验、ANOVA等。
+2. **Wrapper方法**：这类方法将特征选择视为搜索问题，通过不同的特征组合来训练模型，并根据模型性能来评估特征的好坏。递归特征消除（Recursive Feature Elimination, RFE）是比较常见的 Wrapper 方法。
+3. **Embedded方法**：这类方法在模型训练过程中进行特征选择，比如 L1（Lasso）和 L2（Ridge）正则化。正则化不仅可以防止过拟合，还可以用于特征选择。L1正则化可以压缩某些系数到零，从而实现特征的选择。
+4. **基于模型的特征选择**：使用一个基模型来确定特征的重要性，例如使用随机森林或梯度提升树等，这些模型可以提供特征重要性的直接度量，帮助我们选择重要的特征。
+5. **多重测试校正**：当使用统计方法选择特征时，可能会面临多重比较问题，可以使用 Bonferroni 校正等方法来调整显著性水平。
+6. **交叉验证**：结合交叉验证来评估特征选择的效果，确保所选特征的稳定性和泛化能力。
+实际操作中，可能需要尝试多种方法，结合模型的具体情况和数据的特点，进行综合评估和选择。特征选择不仅可以提高模型的性能，还可以减少模型训练的时间，提高模型的解释性。
 
 ![](/assets/images/ml/titanic_metrics_over_training_sessions.png)
+
+
 
 [^3]: 需要说明的是，在这个过程中，为了使用方便，我们重构了 `DataPreprocessor` 类，同时对各个特征的数据处理类也进行了适当修改。具体可以参考原始代码。重构的整体逻辑是将每个特征处理流程分解成独立的方法，使 `preprocess` 方法更为简洁、易于理解和维护。在这过程中，我们创建了一个列表来存储所有特征的处理器的实例和相应的处理方法，然后通过遍历，动态调用处理方法。这种处理方式，使扩展新特征列表较为容易。
 
