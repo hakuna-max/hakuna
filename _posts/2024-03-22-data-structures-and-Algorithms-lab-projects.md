@@ -2,7 +2,7 @@
 layout: post
 title: "Data Structures and Algorithms Lab Projects"
 subtitle:
-excerpt_image: /assets/images/dsa/lab_projects.png
+excerpt_image: /assets/images/dsa/random_geometric_graph.png
 author: Hakuna
 categories: [Python, DSA, Project, Module]
 tags: [dsa]
