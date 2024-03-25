@@ -3277,20 +3277,62 @@ Cross-validated Accuracy (5-fold): 0.866032
 
 与[考虑 `Pclass`, `Sex_female`, `Sex_male`, `AgeFillTitleGroupedStandardScaler` 特征](#basemodel)时的结果比较，各个指标只是有了些许的提升。但是，当可视化了逐步添加特征时的逻辑回归模型的评估指标结果（如下图所示），我们也发现，有的指标会导致评估指标下降，意味着，添加了这些指标后，可能引入了噪声，导致逻辑回归模型的性能有所下降。但也发现，有的指标会增强逻辑回归模型的性能。由此，我们可能需要进一步考虑特征选择的问题。
 
+![](/assets/images/ml/titanic_metrics_over_training_sessions.png)
+
 特征选择可以帮助咱们识别和保留最有用的特征，同时去除那些无用或冗余的特征。以下是一些常用的特征选择方法和策略：
 1. **Filter方法**：这类方法在预处理阶段就对特征进行评分，根据评分进行特征选择。它们通常考虑的是特征与目标变量之间的关系，比如使用相关系数、卡方检验、ANOVA等。
-2. **Wrapper方法**：这类方法将特征选择视为搜索问题，通过不同的特征组合来训练模型，并根据模型性能来评估特征的好坏。递归特征消除（Recursive Feature Elimination, RFE）是比较常见的 Wrapper 方法。
-3. **Embedded方法**：这类方法在模型训练过程中进行特征选择，比如 L1（Lasso）和 L2（Ridge）正则化。正则化不仅可以防止过拟合，还可以用于特征选择。L1正则化可以压缩某些系数到零，从而实现特征的选择。
+2. **Wrapper方法**：这类方法将特征选择视为搜索问题，通过不同的特征组合来训练模型，并根据模型性能来评估特征的好坏。[递归特征消除（Recursive Feature Elimination, RFE）](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.RFE.html)是比较常见的 Wrapper 方法。
+3. **Embedded方法**：这类方法在模型训练过程中进行特征选择，比如 [L1（Lasso）](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html)和 [L2（Ridge）](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html)正则化。正则化不仅可以防止过拟合，还可以用于特征选择。L1正则化可以压缩某些系数到零，从而实现特征的选择[^4]。
 4. **基于模型的特征选择**：使用一个基模型来确定特征的重要性，例如使用随机森林或梯度提升树等，这些模型可以提供特征重要性的直接度量，帮助我们选择重要的特征。
 5. **多重测试校正**：当使用统计方法选择特征时，可能会面临多重比较问题，可以使用 Bonferroni 校正等方法来调整显著性水平。
 6. **交叉验证**：结合交叉验证来评估特征选择的效果，确保所选特征的稳定性和泛化能力。
 
 实际操作中，可能需要尝试多种方法，结合模型的具体情况和数据的特点，进行综合评估和选择。特征选择不仅可以提高模型的性能，还可以减少模型训练的时间，提高模型的解释性。
 
-![](/assets/images/ml/titanic_metrics_over_training_sessions.png)
+接下来，我们试着采用[递归特征消除（Recursive Feature Elimination, RFE）](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.RFE.html)和 [L1（Lasso）](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html)这两种方式进行特征选择，特征选择模块的相关示例代码如下：
+
+```python
+# titanic/titanic/data_preprocessing.py
+class FeatureSelector:
+    def __init__(self, model, params):
+        self.model = model
+        self.params = params
+        self.best_model = None
+        self.selected_features = None
+
+    def optimize_parameters(self, X, y):
+        grid_search = GridSearchCV(
+            estimator=self.model, param_grid=self.params, cv=5, scoring="accuracy"
+        )
+        grid_search.fit(X, y)
+        self.best_model = grid_search.best_estimator_
+        print(f"Best parameters found: {grid_search.best_params_}")
+        print(f"Best CV score: {grid_search.best_score_}")
+
+    def select_features_rfe(self, X, y):
+        if self.best_model is None:
+            self.optimize_parameters(X, y)
+
+        selector = RFECV(estimator=self.best_model, step=1, cv=5)
+        selector.fit(X, y)
+        self.selected_features = X.columns[selector.support_]
+
+        return self.selected_features
+
+    def select_features_lasso(self, X, y):
+        if self.best_model is None:
+            self.optimize_parameters(X, y)
+
+        selector = SelectFromModel(self.best_model)
+        selector.fit(X, y)
+        self.selected_features = X.columns[selector.get_support()]
+
+        return self.selected_features
+```
 
 
 
 [^3]: 需要说明的是，在这个过程中，为了使用方便，我们重构了 `DataPreprocessor` 类，同时对各个特征的数据处理类也进行了适当修改。具体可以参考原始代码。重构的整体逻辑是将每个特征处理流程分解成独立的方法，使 `preprocess` 方法更为简洁、易于理解和维护。在这过程中，我们创建了一个列表来存储所有特征的处理器的实例和相应的处理方法，然后通过遍历，动态调用处理方法。这种处理方式，使扩展新特征列表较为容易。
+[^4]: Ridge正则化和Lasso正则化都是用于防止机器学习模型过拟合的技术，但它们在处理方式上有一些区别。Lasso回归在损失函数中添加了一个惩罚项，这个惩罚项是所有系数的**绝对值之和**的乘以一个常数$\lambda$。Lasso倾向于产生一些系数为零的情况，这意味着它可以用作特征选择的一种手段。换句话说，Lasso可以将不重要的特征的系数置为零，从而将它们排除出模型。Ridge回归对于损失函数的处理与Lasso回归类似，也是添加了一个惩罚项，这个惩罚项是所有系数的**平方和**的乘以一个常数$\lambda$。Ridge回归倾向于将系数缩小而不是将它们完全置为零。这意味着Ridge回归提供的是一种是一种减小模型复杂度并防止过拟合的方法，但它不会将系数减至零，也就是说不会像Lasso正则化那样做特征选择。相对于而言，Lasso正则化在特征选择上更直接有效，Ridge更多用于处理共线性数据而不是特征选择。因此，在实际应用中，如果需要特征选择功能，通常优先考虑Lasso正则化。
 
 <hr/>
