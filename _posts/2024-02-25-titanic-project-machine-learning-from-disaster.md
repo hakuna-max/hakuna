@@ -3289,46 +3289,6 @@ Cross-validated Accuracy (5-fold): 0.866032
 
 实际操作中，可能需要尝试多种方法，结合模型的具体情况和数据的特点，进行综合评估和选择。特征选择不仅可以提高模型的性能，还可以减少模型训练的时间，提高模型的解释性。
 
-接下来，我们试着采用[递归特征消除（Recursive Feature Elimination, RFE）](https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.RFE.html)和 [L1（Lasso）](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html)这两种方式进行特征选择，特征选择模块的相关示例代码如下：
-
-```python
-# titanic/titanic/data_preprocessing.py
-class FeatureSelector:
-    def __init__(self, model, params):
-        self.model = model
-        self.params = params
-        self.best_model = None
-        self.selected_features = None
-
-    def optimize_parameters(self, X, y):
-        grid_search = GridSearchCV(
-            estimator=self.model, param_grid=self.params, cv=5, scoring="accuracy"
-        )
-        grid_search.fit(X, y)
-        self.best_model = grid_search.best_estimator_
-        print(f"Best parameters found: {grid_search.best_params_}")
-        print(f"Best CV score: {grid_search.best_score_}")
-
-    def select_features_rfe(self, X, y):
-        if self.best_model is None:
-            self.optimize_parameters(X, y)
-
-        selector = RFECV(estimator=self.best_model, step=1, cv=5)
-        selector.fit(X, y)
-        self.selected_features = X.columns[selector.support_]
-
-        return self.selected_features
-
-    def select_features_lasso(self, X, y):
-        if self.best_model is None:
-            self.optimize_parameters(X, y)
-
-        selector = SelectFromModel(self.best_model)
-        selector.fit(X, y)
-        self.selected_features = X.columns[selector.get_support()]
-
-        return self.selected_features
-```
 
 
 
