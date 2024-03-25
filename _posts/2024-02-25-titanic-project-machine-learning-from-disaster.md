@@ -3289,10 +3289,113 @@ Cross-validated Accuracy (5-fold): 0.866032
 
 实际操作中，可能需要尝试多种方法，结合模型的具体情况和数据的特点，进行综合评估和选择。特征选择不仅可以提高模型的性能，还可以减少模型训练的时间，提高模型的解释性。
 
+考虑到 `LogisticRegression` 方法的自身特征（本身可以通过设置相关超参数实现正则化功能，比如默认的惩罚项为L2），我们可以暂时试着通过搜索最有参数的方式来改善模型的效果。这里我们可以通过应用 `GridSearchCV` 方法来寻优，实现的示例代码如下[^5]：
 
+```python
+# titanic/titanic/model.py
+class ModelBase:
+    def __init__(self, model, params, results_file):
+        self.model = model
+        self.params = params
+        self.results_file = results_file
+        self.evaluator = None
+        self.best_model = None
+
+    def optimize_parameters(self, X, y):
+        grid_search = GridSearchCV(self.model, self.params, cv=5, scoring="accuracy")
+        grid_search.fit(X, y)
+        self.best_model = grid_search.best_estimator_
+        print(f"Best parameters found: {grid_search.best_params_}")
+        print(f"Best CV score: {grid_search.best_score_}")
+
+    def train(self, X, y):
+        if not self.best_model:
+            raise ValueError("You must optimize parameters before training the model")
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        self.best_model.fit(X_train, y_train)
+        self.evaluator = ModelEvaluator(
+            self.best_model, X_test, y_test, self.results_file
+        )
+
+    def evaluate(self, cv=5):
+        if self.evaluator:
+            return self.evaluator.evaluate(cv=cv)
+        else:
+            raise ValueError("The model needs to be trained before evaluation.")
+
+
+class LogisticModel(ModelBase):
+    def __init__(self, results_file, params=None):
+        if params is None:
+            params = {
+                "C": [0.01, 0.1, 1, 10, 100],
+                "penalty": ["l2"],
+                "solver": ["liblinear", "lbfgs", "newton-cg", "sag", "saga"],
+            }
+        super().__init__(
+            LogisticRegression(max_iter=10000, random_state=0), params, results_file
+        )
+```
+
+简要解释下逻辑回归模型中几个关键参数设置：
+
+. **`C` (正则化强度的倒数)**：`C` 参数控制模型的正则化强度，较小的 `C` 值指定更强的正则化。正则化用于防止模型过拟合，通过添加一个惩罚项来约束模型的复杂度。关于选择范围 `[0.01, 0.1, 1, 10, 100]` 是为了在很宽的范围内探索不同的正则化强度，从非常强的正则化（如 0.01）到几乎没有正则化（如 100）。
+2. **`penalty` (正则化类型)**：`penalty` 参数确定用于正则化的类型，`l1` 为 Lasso 正则化，可以生成稀疏模型，有助于特征选择；`l2` 为 Ridge 正则化，通常用于处理特征间的多重共线性。选择 `['l1', 'l2']` 是为了比较这两种正则化类型对模型性能的影响。
+3. **`solver` (优化算法)**：`solver` 参数指定在优化过程中使用的算法。不同的求解器支持不同类型的正则化，并且在大数据集上的表现也不同。包括 `'liblinear'` 是因为它适用于小数据集，并且支持 `l1` 和 `l2` 正则化。`'lbfgs'` 是适用于较大数据集的优化算法，但只支持 `l2` 正则化。
+   
+需要说明的是，以上参数及其范围选择是为了展示不同求解器的适用场景和它们如何影响模型的最终性能。实际应用是，针对逻辑回归模型，不需要这么复杂的参数设置。
+
+为了使用以上方法，需要适当修改 `main.py` 中的 `train_and_evaluate_model` 函数，如下：
+
+```python
+# titanic/titanic/main.py
+def train_and_evaluate_model(data, features, target, results_file):
+    model = LogisticModel(results_file=results_file)
+    model.optimize_parameters(data[features], data[target])
+    model.train(data[features], data[target])
+    model.evaluate()
+    return 0
+```
+
+重新运行 `main.py` 得到如下结果：
+
+```plaintext
+Features considered in the model (54 features in total): ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP', 'FareStandardScaler', 'CabinMissing', 'EmbarkedFillCommon_C', 'EmbarkedFillCommon_Q', 'EmbarkedFillCommon_S', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
+
+Best parameters found: {'C': 10, 'penalty': 'l2', 'solver': 'lbfgs'}
+
+Best CV score: 0.813678
+
+Evaluation Metrics:
+        Accuracy Precision    Recall  F1 Score   ROC AUC
+Values  0.821229  0.828125  0.716216  0.768116  0.877477
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  94                  11
+Actual Positive                  21                  53
+
+Cross-validated Accuracy (5-fold): 0.838095
+```
+
+对比未采用网格搜索时的结果：
+1. **参数优化的影响**：网格搜索确定的最佳参数是`{'C': 10, 'penalty': 'l2', 'solver': 'lbfgs'}`。这表示在正则化强度和求解器选择上，经过优化的参数比默认参数更适合您的数据集。
+2. **性能指标的变化**：在经过参数优化后，准确率（Accuracy）从0.815642提高到了0.821229，这表明模型在整体上对测试集的分类效果有所提升。召回率（Recall）和F1分数（F1 Score）也有所提高，这意味着模型对少数类的预测能力增强。
+3. **交叉验证得分的差异**：在网格搜索中获得的最佳交叉验证得分（Best CV score）为0.813678，这个分数是在模型参数优化过程中，通过交叉验证在训练集上获得的平均得分。而在模型评估时计算的交叉验证准确率（0.838095）是在最终确定的模型上，对测试集进行交叉验证得到的。这两个得分的差异可能来源于数据集的分割方式和模型训练时使用的数据量。
+4. **ROC AUC的下降**：值得注意的是，尽管其他性能指标有所提升，但 ROC AUC 略有下降。这可能意味着优化后的模型在区分类别的能力上有轻微下降，但这种下降非常微小，可能不具有显著的实际意义。
+
+综上，参数优化通过网格搜索改善了模型在多个性能指标上的表现，尽管 ROC AUC 有所下降，但模型的整体性能是提高的。这说明参数优化是提升模型性能的有效方法，尤其是在已经进行了细致的特征工程后。
+
+逻辑回归模型会返回特征的系数，系数的大小反映了各个特征对模型预测结果的影响程度，正负反映了特征与目标变量是正相关关系还是负相关关系。经过超参数寻优过程后的各个特征的重要程度如下图所示：
+
+![](/assets//images/ml/coef_logisticregression_gridsearchcv.png)
 
 
 [^3]: 需要说明的是，在这个过程中，为了使用方便，我们重构了 `DataPreprocessor` 类，同时对各个特征的数据处理类也进行了适当修改。具体可以参考原始代码。重构的整体逻辑是将每个特征处理流程分解成独立的方法，使 `preprocess` 方法更为简洁、易于理解和维护。在这过程中，我们创建了一个列表来存储所有特征的处理器的实例和相应的处理方法，然后通过遍历，动态调用处理方法。这种处理方式，使扩展新特征列表较为容易。
 [^4]: Ridge正则化和Lasso正则化都是用于防止机器学习模型过拟合的技术，但它们在处理方式上有一些区别。Lasso回归在损失函数中添加了一个惩罚项，这个惩罚项是所有系数的**绝对值之和**的乘以一个常数$\lambda$。Lasso倾向于产生一些系数为零的情况，这意味着它可以用作特征选择的一种手段。换句话说，Lasso可以将不重要的特征的系数置为零，从而将它们排除出模型。Ridge回归对于损失函数的处理与Lasso回归类似，也是添加了一个惩罚项，这个惩罚项是所有系数的**平方和**的乘以一个常数$\lambda$。Ridge回归倾向于将系数缩小而不是将它们完全置为零。这意味着Ridge回归提供的是一种是一种减小模型复杂度并防止过拟合的方法，但它不会将系数减至零，也就是说不会像Lasso正则化那样做特征选择。相对于而言，Lasso正则化在特征选择上更直接有效，Ridge更多用于处理共线性数据而不是特征选择。因此，在实际应用中，如果需要特征选择功能，通常优先考虑Lasso正则化。
+[^5]: 这里，我们重构了下 `model.py` 文件，将网格搜索、模型训练和评估作为一个基类，主要是考虑到后期可能会选择其他分类器。而这些方法其他分类器也可以使用。也即 `BaseModel` 类中实现了参数优化和模型评估的通用方法，而具体模型如 `LogisticModel` 则可以专注于实现特定于该模型的逻辑。后续需要添加更多模型时，是需要创建新的类，并继承 `BaseModel` 类即可。
 
 <hr/>
