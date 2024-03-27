@@ -3436,11 +3436,11 @@ Cross-validated Accuracy (5-fold): 0.866032
 
 ![](/assets/images/ml/coef_LogisticRegression_gridsearchcv_2.png)
 
-我们也可以查看下不同折下的训练集和测试集分布情况：
+我们也可以查看下不同折下的训练集和测试集分布情况（具体代码可以查看 `ModelBase` 中的 `plot_cv_indices` 方法）：
 
 ![](/assets/images/ml/StratifiedKFold_LogisticRegression.png)
 
-为了更为直观的展示逻辑回归模型训练的泛化能力，下图展示了其学习曲线：
+为了更为直观的展示逻辑回归模型训练的泛化能力，下图展示了其学习曲线（具体代码可以查看 `ModelBase` 中的 `plot_learning_curve` 方法）：
 
 ![](/assets/images/ml/LogisticRegression_learning_curve.png)
 
