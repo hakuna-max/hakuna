@@ -3393,6 +3393,66 @@ Cross-validated Accuracy (5-fold): 0.838095
 
 ![](/assets//images/ml/coef_logisticregression_gridsearchcv.png)
 
+在 `ModelBase` 类中，使用交叉验证（CV）的目的是评估模型的泛化能力，确保模型不仅仅是对训练集过度拟合，而是能够在未见过的数据上也有良好的表现。考虑到本项目的数据集存在不平衡数据，下面我们计划使用分层抽样 `StratifiedKFold`[^6] 而不是简单的`KFold`，进一步改进交叉验证的效果。从代码的角度，我们只需要在  `optimize_parameters` 方法中添加一行代码就成，示例代码如下：
+
+```python
+# titanic/titanic/model.py
+
+class ModelBase:
+    # 其他代码保持不变
+    def optimize_parameters(self, X, y):
+        stratified_kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=2)
+        grid_search = GridSearchCV(
+            self.model, self.params, cv=stratified_kfold, scoring="accuracy"
+        )
+        grid_search.fit(X, y)
+        self.best_model = grid_search.best_estimator_
+        print(f"Best parameters found: {grid_search.best_params_}\n")
+        print(f"Best CV score: {grid_search.best_score_:.6f}\n")
+```
+
+此时的评估结果如下：
+
+```plaintext
+Features considered in the model (54 features in total): ['Pclass', 'Sex_female', 'Sex_male', 'AgeFillTitleGroupedStandardScaler', 'SibSp', 'Parch', 'TicketPrefix_A', 'TicketPrefix_AS', 'TicketPrefix_C', 'TicketPrefix_CA', 'TicketPrefix_CASOTON', 'TicketPrefix_FC', 'TicketPrefix_FCC', 'TicketPrefix_Fa', 'TicketPrefix_LINE', 'TicketPrefix_None', 'TicketPrefix_PC', 'TicketPrefix_PP', 'TicketPrefix_PPP', 'TicketPrefix_SC', 'TicketPrefix_SCA', 'TicketPrefix_SCAH', 'TicketPrefix_SCOW', 'TicketPrefix_SCPARIS', 'TicketPrefix_SCParis', 'TicketPrefix_SOC', 'TicketPrefix_SOP', 'TicketPrefix_SOPP', 'TicketPrefix_SOTONO', 'TicketPrefix_SOTONOQ', 'TicketPrefix_SP', 'TicketPrefix_STONO', 'TicketPrefix_SWPP', 'TicketPrefix_WC', 'TicketPrefix_WEP', 'FareStandardScaler', 'CabinMissing', 'EmbarkedFillCommon_C', 'EmbarkedFillCommon_Q', 'EmbarkedFillCommon_S', 'SexPclass_female1', 'SexPclass_female2', 'SexPclass_female3', 'SexPclass_male1', 'SexPclass_male2', 'SexPclass_male3', 'AgeFillTitleGroupedStandardScalerSex_female', 'AgeFillTitleGroupedStandardScalerSex_male', 'FamilySizeStandardScalerSex_female', 'FamilySizeStandardScalerSex_male', 'SibSpSex_female', 'SibSpSex_male', 'ParchSex_female', 'ParchSex_male']
+
+Best parameters found: {'C': 1, 'penalty': 'l2', 'solver': 'lbfgs'}
+
+Best CV score: 0.819302
+
+Evaluation Metrics:
+        Accuracy Precision    Recall  F1 Score   ROC AUC
+Values  0.815642  0.825397  0.702703  0.759124  0.882625
+
+Confusion Matrix:
+                 Predicted Negative  Predicted Positive
+Actual Negative                  94                  11
+Actual Positive                  22                  52
+
+Cross-validated Accuracy (5-fold): 0.866032
+```
+
+此时的各特征的权重如下图所示：
+
+![](/assets/images/ml/coef_LogisticRegression_gridsearchcv_2.png)
+
+我们也可以查看下不同折下的训练集和测试集分布情况：
+
+![](/assets/images/ml/StratifiedKFold_LogisticRegression.png)
+
+为了更为直观的展示逻辑回归模型训练的泛化能力，下图展示了其学习曲线：
+
+![](/assets/images/ml/LogisticRegression_learning_curve.png)
+
+与 `cv=5` 时的结果对比发现网格搜索优化后的参数选择和交叉验证的评估分数存在差异。
+1. **参数选择的差异**：第一个结果选择了`{'C': 10, 'penalty': 'l2', 'solver': 'lbfgs'}`作为最优参数。第二个结果选择了`{'C': 1, 'penalty': 'l2', 'solver': 'lbfgs'}`作为最优参数。这表明在不同的交叉验证策略下，模型对于正则化强度的最佳选择是有所不同的。`C=10` 意味着更少的正则化，而`C=1` 提供了一个中等水平的正则化。
+2. **交叉验证分数的差异**：第一个方法的最佳交叉验证分数是0.813678。第二个方法的最佳交叉验证分数是0.819302。这个差异表明在使用 `StratifiedKFold` 时，模型的平均性能略优于简单的 K 折交叉验证。`StratifiedKFold` 保证了每个折中各类样本的比例与整体数据集相同，这对于处理不平衡数据集特别有用。
+3. **模型评估指标的差异**： 尽管 `StratifiedKFold` 得到的最佳参数在交叉验证中表现更好，但在独立测试集上的表现略有不同。最终评估的准确率、精确度、召回率、F1分数和ROC AUC值在两种方法之间有细微差异，这些差异可能由训练集和测试集的具体划分方式引起。
+4. **交叉验证准确率的差异**：第一个方法的交叉验证准确率是0.838095。第二个方法的交叉验证准确率是0.866032。这表明在实际应用中，`StratifiedKFold` 提供了更稳定和可靠的评估结果。
+
+总结来说，选择合适的交叉验证策略对模型的优化和评估至关重要。`StratifiedKFold` 通常是分类问题的首选方法，尤其是在处理类别不平衡的数据时。这些结果也强调了不同交叉验证方法可能导致模型选择不同的最优参数，并最终影响模型在未见数据上的表现。
+
+[^6]: `StratifiedKFold` 是分层抽样的交叉验证。与普通的 `KFold` 相比，`StratifiedKFold`保持每个折叠中目标类别的比例与完整数据集中的比例相同。由于它确保了每个折叠中各个类别的比例保持一致，使得它对于处理不平衡数据集特别有用。比较而言，在不平衡数据集中，`StratifiedKFold`具有以下优势：可以提供更准确和更稳定的模型评估结果；帮助在训练过程中保持类别比例，减少由于数据不平衡导致的过拟合风险；确保每次训练和验证的数据都是代表性的，从而可能改善模型的总体性能。
 
 [^3]: 需要说明的是，在这个过程中，为了使用方便，我们重构了 `DataPreprocessor` 类，同时对各个特征的数据处理类也进行了适当修改。具体可以参考原始代码。重构的整体逻辑是将每个特征处理流程分解成独立的方法，使 `preprocess` 方法更为简洁、易于理解和维护。在这过程中，我们创建了一个列表来存储所有特征的处理器的实例和相应的处理方法，然后通过遍历，动态调用处理方法。这种处理方式，使扩展新特征列表较为容易。
 [^4]: Ridge正则化和Lasso正则化都是用于防止机器学习模型过拟合的技术，但它们在处理方式上有一些区别。Lasso回归在损失函数中添加了一个惩罚项，这个惩罚项是所有系数的**绝对值之和**的乘以一个常数$\lambda$。Lasso倾向于产生一些系数为零的情况，这意味着它可以用作特征选择的一种手段。换句话说，Lasso可以将不重要的特征的系数置为零，从而将它们排除出模型。Ridge回归对于损失函数的处理与Lasso回归类似，也是添加了一个惩罚项，这个惩罚项是所有系数的**平方和**的乘以一个常数$\lambda$。Ridge回归倾向于将系数缩小而不是将它们完全置为零。这意味着Ridge回归提供的是一种是一种减小模型复杂度并防止过拟合的方法，但它不会将系数减至零，也就是说不会像Lasso正则化那样做特征选择。相对于而言，Lasso正则化在特征选择上更直接有效，Ridge更多用于处理共线性数据而不是特征选择。因此，在实际应用中，如果需要特征选择功能，通常优先考虑Lasso正则化。
